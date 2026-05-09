@@ -1,0 +1,43 @@
+# ===== Java / Maven =====
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.nar
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== Node / Vue =====
+node_modules/
+dist/
+.npm
+*.log
+npm-debug.log*
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.tmp
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== Upload / Storage =====
+uploads/
+data/
+storage/
+
+# ===== Claude =====
+.claude/
