@@ -1,0 +1,54 @@
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+
+interface ApiResponse<T = unknown> {
+  code: number;
+  message: string;
+  data: T;
+  traceId: string;
+}
+
+const instance: AxiosInstance = axios.create({
+  baseURL: '/api/v1',
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// 请求拦截：注入 Token 和租户头
+instance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  const tenantId = localStorage.getItem('tenantId');
+  if (tenantId) {
+    config.headers['X-Tenant-Id'] = tenantId;
+  }
+  return config;
+});
+
+// 响应拦截：统一错误处理
+instance.interceptors.response.use(
+  (response: AxiosResponse<ApiResponse>) => {
+    const { code, message } = response.data;
+    if (code !== 0) {
+      console.error(`[API Error] ${code}: ${message}`);
+      return Promise.reject(new Error(message));
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  },
+);
+
+export async function request<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  const response = await instance.request<ApiResponse<T>>(config);
+  return response.data;
+}
+
+export default instance;
