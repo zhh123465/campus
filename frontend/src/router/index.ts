@@ -86,6 +86,24 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/resources',
+    name: 'resources',
+    component: () => import('@/pages/Resources.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/resources/upload',
+    name: 'resource-upload',
+    component: () => import('@/pages/ResourceUpload.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/resources/:id',
+    name: 'resource-detail',
+    component: () => import('@/pages/ResourceDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('@/pages/AdminUsers.vue'),

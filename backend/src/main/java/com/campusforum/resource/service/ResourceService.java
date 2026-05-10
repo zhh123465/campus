@@ -1,0 +1,197 @@
+package com.campusforum.resource.service;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.campusforum.common.BusinessException;
+import com.campusforum.common.ErrorCode;
+import com.campusforum.infra.StorageService;
+import com.campusforum.resource.domain.Resource;
+import com.campusforum.resource.dto.ResourceVO;
+import com.campusforum.resource.dto.UploadResourceRequest;
+import com.campusforum.resource.mapper.ResourceMapper;
+import com.campusforum.user.domain.User;
+import com.campusforum.user.dto.UserVO;
+import com.campusforum.user.mapper.UserMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collections;
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ResourceService {
+
+    private final ResourceMapper resourceMapper;
+    private final UserMapper userMapper;
+    private final StorageService storageService;
+    private final ObjectMapper objectMapper;
+
+    @Transactional
+    public ResourceVO upload(Long userId, MultipartFile file, UploadResourceRequest req) {
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || originalName.isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "文件名为空");
+        }
+
+        String storageKey;
+        try (InputStream is = file.getInputStream()) {
+            storageKey = storageService.upload(is, originalName, file.getContentType());
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.STORAGE_ERROR);
+        }
+
+        String ext = "";
+        int dot = originalName.lastIndexOf('.');
+        if (dot >= 0) ext = originalName.substring(dot + 1).toLowerCase();
+
+        Resource resource = new Resource();
+        resource.setUploaderId(userId);
+        resource.setSpaceId(req.getSpaceId());
+        resource.setFileName(originalName);
+        resource.setFileSize(file.getSize());
+        resource.setFileType(ext);
+        resource.setStorageKey(storageKey);
+        resource.setVisibility(req.getVisibility() != null ? req.getVisibility() : "PUBLIC");
+        resource.setCollege(req.getCollege());
+        resource.setMajor(req.getMajor());
+        resource.setCourse(req.getCourse());
+        resource.setSemester(req.getSemester());
+        if (req.getTags() != null && !req.getTags().isEmpty()) {
+            try {
+                resource.setTags(objectMapper.writeValueAsString(req.getTags()));
+            } catch (JsonProcessingException e) {
+                resource.setTags("[]");
+            }
+        }
+        resource.setDescription(req.getDescription());
+        resource.setDownloadCount(0);
+        resource.setCollectCount(0);
+        resource.setStatus(1);
+
+        resourceMapper.insert(resource);
+        log.info("Resource uploaded: id={}, fileName={}", resource.getId(), originalName);
+        return toVO(resource);
+    }
+
+    public ResourceVO getById(Long resourceId) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null || resource.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return toVO(resource);
+    }
+
+    public List<ResourceVO> list(Long spaceId, String college, String major, String course, Long cursor, int limit) {
+        int size = Math.min(limit, 50);
+        LambdaQueryWrapper<Resource> qw = new LambdaQueryWrapper<>();
+        qw.eq(Resource::getStatus, 1);
+        if (spaceId != null) {
+            qw.eq(Resource::getSpaceId, spaceId);
+        }
+        if (college != null && !college.isBlank()) {
+            qw.eq(Resource::getCollege, college);
+        }
+        if (major != null && !major.isBlank()) {
+            qw.eq(Resource::getMajor, major);
+        }
+        if (course != null && !course.isBlank()) {
+            qw.like(Resource::getCourse, course);
+        }
+        if (cursor != null) {
+            qw.lt(Resource::getId, cursor);
+        }
+        qw.orderByDesc(Resource::getId);
+        qw.last("LIMIT " + size);
+
+        return resourceMapper.selectList(qw).stream().map(this::toVO).toList();
+    }
+
+    @Transactional
+    public InputStream download(Long resourceId) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null || resource.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        resource.setDownloadCount(resource.getDownloadCount() + 1);
+        resourceMapper.updateById(resource);
+
+        return storageService.download(resource.getStorageKey());
+    }
+
+    public String getFileName(Long resourceId) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null || resource.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return resource.getFileName();
+    }
+
+    @Transactional
+    public void delete(Long resourceId, Long userId) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null || resource.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!resource.getUploaderId().equals(userId)) {
+            String role = (String) StpUtil.getSession().get("role");
+            if (!"TENANT_ADMIN".equals(role) && !"SUPER_ADMIN".equals(role)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+        }
+
+        storageService.delete(resource.getStorageKey());
+        resourceMapper.deleteById(resourceId);
+        log.info("Resource deleted: id={}", resourceId);
+    }
+
+    private ResourceVO toVO(Resource r) {
+        User uploader = userMapper.selectById(r.getUploaderId());
+        UserVO uploaderVO = null;
+        if (uploader != null) {
+            uploaderVO = UserVO.builder()
+                    .id(uploader.getId())
+                    .nickname(uploader.getNickname())
+                    .avatarUrl(uploader.getAvatarUrl())
+                    .build();
+        }
+
+        List<String> tagList = Collections.emptyList();
+        if (r.getTags() != null && !r.getTags().isEmpty() && !"[]".equals(r.getTags())) {
+            try {
+                tagList = objectMapper.readValue(r.getTags(), List.class);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return ResourceVO.builder()
+                .id(r.getId())
+                .uploaderId(r.getUploaderId())
+                .uploader(uploaderVO)
+                .spaceId(r.getSpaceId())
+                .fileName(r.getFileName())
+                .fileSize(r.getFileSize())
+                .fileType(r.getFileType())
+                .visibility(r.getVisibility())
+                .college(r.getCollege())
+                .major(r.getMajor())
+                .course(r.getCourse())
+                .semester(r.getSemester())
+                .tags(tagList)
+                .downloadCount(r.getDownloadCount())
+                .collectCount(r.getCollectCount())
+                .version(r.getVersion())
+                .description(r.getDescription())
+                .createdAt(r.getCreatedAt())
+                .build();
+    }
+}

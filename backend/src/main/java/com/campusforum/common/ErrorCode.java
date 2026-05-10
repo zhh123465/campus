@@ -16,6 +16,7 @@ public enum ErrorCode {
     BOUNTY_ALREADY_SETTLED(10401, "悬赏积分已结算"),
     CHALLENGE_NOT_FOUND(10501, "打卡挑战不存在"),
     ALREADY_CHECKED_IN(10502, "今日已打卡"),
+    RESOURCE_NOT_FOUND(10601, "资源不存在"),
 
     // 4xxxx 客户端错误
     BAD_REQUEST(40000, "请求参数错误"),
