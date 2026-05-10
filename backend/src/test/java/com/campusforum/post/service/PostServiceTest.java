@@ -1,0 +1,108 @@
+package com.campusforum.post.service;
+
+import com.campusforum.common.BusinessException;
+import com.campusforum.common.ErrorCode;
+import com.campusforum.post.dto.CreatePostRequest;
+import com.campusforum.post.dto.PostPageRequest;
+import com.campusforum.post.dto.PostVO;
+import com.campusforum.user.dto.RegisterRequest;
+import com.campusforum.user.dto.UserVO;
+import com.campusforum.user.service.UserService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+
+@SpringBootTest
+class PostServiceTest {
+
+    @Autowired
+    private PostService postService;
+
+    @Autowired
+    private UserService userService;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        long timestamp = System.currentTimeMillis();
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("post-author" + timestamp + "@campusforum.com");
+        req.setPassword("Test123456");
+        req.setNickname("帖子作者");
+        UserVO user = userService.register(req);
+        authorId = user.getId();
+    }
+
+    @Test
+    void shouldCreatePost() {
+        CreatePostRequest req = new CreatePostRequest();
+        req.setTitle("测试帖子标题");
+        req.setContent("这是测试帖子的内容，用于验证发帖功能。");
+
+        PostVO post = postService.create(authorId, req);
+
+        assertThat(post.getId()).isNotNull();
+        assertThat(post.getTitle()).isEqualTo("测试帖子标题");
+        assertThat(post.getContent()).isEqualTo("这是测试帖子的内容，用于验证发帖功能。");
+        assertThat(post.getAuthor().getId()).isEqualTo(authorId);
+        assertThat(post.getAuthor().getNickname()).isEqualTo("帖子作者");
+        assertThat(post.getViewCount()).isEqualTo(0);
+        assertThat(post.getLikeCount()).isEqualTo(0);
+        assertThat(post.getCommentCount()).isEqualTo(0);
+    }
+
+    @Test
+    void shouldCreatePostWithoutTitle() {
+        CreatePostRequest req = new CreatePostRequest();
+        req.setContent("这是一个无标题的帖子");
+
+        PostVO post = postService.create(authorId, req);
+
+        assertThat(post.getId()).isNotNull();
+        assertThat(post.getTitle()).isNull();
+    }
+
+    @Test
+    void shouldGetPostAndIncrementView() {
+        CreatePostRequest req = new CreatePostRequest();
+        req.setTitle("详情测试帖子");
+        req.setContent("测试浏览量递增");
+        PostVO created = postService.create(authorId, req);
+
+        PostVO detail = postService.getById(created.getId());
+
+        assertThat(detail.getId()).isEqualTo(created.getId());
+        assertThat(detail.getViewCount()).isEqualTo(1); // 创建时 0，查一次 +1
+        assertThat(detail.getAuthor().getNickname()).isEqualTo("帖子作者");
+    }
+
+    @Test
+    void shouldPagePostsByLatest() {
+        for (int i = 0; i < 3; i++) {
+            CreatePostRequest req = new CreatePostRequest();
+            req.setTitle("帖子 " + (i + 1));
+            req.setContent("内容 " + (i + 1));
+            postService.create(authorId, req);
+        }
+
+        PostPageRequest pageReq = new PostPageRequest();
+        pageReq.setLimit(10);
+        List<PostVO> posts = postService.page(pageReq);
+
+        assertThat(posts).isNotEmpty();
+        // 按 ID 倒序，最新的在最前面
+        assertThat(posts.get(0).getId()).isGreaterThan(posts.get(posts.size() - 1).getId());
+    }
+
+    @Test
+    void shouldThrowWhenPostNotFound() {
+        assertThatThrownBy(() -> postService.getById(999999L))
+                .isInstanceOf(BusinessException.class);
+    }
+}

@@ -1,19 +1,26 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+onMounted(() => {
+  router.replace('/square');
+});
 </script>
 
 <template>
   <div class="home">
-    <h1>CampusForum</h1>
-    <p>高校轻量化学习社群平台</p>
+    <p>正在跳转...</p>
   </div>
 </template>
 
 <style scoped>
 .home {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  color: #999;
 }
 </style>

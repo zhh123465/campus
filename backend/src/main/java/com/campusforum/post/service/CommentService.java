@@ -1,0 +1,130 @@
+package com.campusforum.post.service;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.campusforum.common.BusinessException;
+import com.campusforum.common.ErrorCode;
+import com.campusforum.post.domain.Comment;
+import com.campusforum.post.dto.CommentVO;
+import com.campusforum.post.dto.CreateCommentRequest;
+import com.campusforum.post.mapper.CommentMapper;
+import com.campusforum.post.mapper.PostMapper;
+import com.campusforum.user.domain.User;
+import com.campusforum.user.dto.UserVO;
+import com.campusforum.user.mapper.UserMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class CommentService {
+
+    private final CommentMapper commentMapper;
+    private final PostMapper postMapper;
+    private final UserMapper userMapper;
+
+    @Transactional
+    public CommentVO create(Long userId, CreateCommentRequest req) {
+        Comment comment = new Comment();
+        comment.setPostId(req.getPostId());
+        comment.setParentId(req.getParentId());
+        comment.setReplyToId(req.getReplyToId());
+        comment.setAuthorId(userId);
+        comment.setContent(req.getContent());
+        comment.setLikeCount(0);
+        comment.setStatus(1);
+
+        commentMapper.insert(comment);
+
+        // 更新帖子评论数
+        var post = postMapper.selectById(req.getPostId());
+        if (post != null) {
+            post.setCommentCount(post.getCommentCount() + 1);
+            postMapper.updateById(post);
+        }
+
+        log.info("Comment created: id={}, postId={}", comment.getId(), req.getPostId());
+        return toVO(comment);
+    }
+
+    public List<CommentVO> listByPost(Long postId, Long cursor, int limit) {
+        int size = Math.min(limit, 100);
+        LambdaQueryWrapper<Comment> qw = new LambdaQueryWrapper<>();
+        qw.eq(Comment::getPostId, postId);
+        qw.isNull(Comment::getParentId);
+        qw.eq(Comment::getStatus, 1);
+        if (cursor != null) {
+            qw.gt(Comment::getId, cursor);
+        }
+        qw.orderByAsc(Comment::getId);
+        qw.last("LIMIT " + size);
+
+        List<Comment> parents = commentMapper.selectList(qw);
+        if (parents.isEmpty()) return List.of();
+
+        // 查子评论
+        List<Long> parentIds = parents.stream().map(Comment::getId).toList();
+        LambdaQueryWrapper<Comment> childQw = new LambdaQueryWrapper<>();
+        childQw.in(Comment::getParentId, parentIds);
+        childQw.eq(Comment::getStatus, 1);
+        childQw.orderByAsc(Comment::getId);
+        List<Comment> children = commentMapper.selectList(childQw);
+
+        Map<Long, List<CommentVO>> childMap = children.stream()
+                .map(this::toVO)
+                .collect(Collectors.groupingBy(c -> c.getParentId()));
+
+        return parents.stream().map(p -> {
+            CommentVO vo = toVO(p);
+            vo.setReplies(childMap.getOrDefault(p.getId(), List.of()));
+            return vo;
+        }).toList();
+    }
+
+    @Transactional
+    public void deleteComment(Long userId, Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null || comment.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        String role = (String) StpUtil.getSession().get("role");
+        if (!comment.getAuthorId().equals(userId) && !"TENANT_ADMIN".equals(role) && !"SUPER_ADMIN".equals(role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        commentMapper.deleteById(commentId);
+        log.info("Comment deleted: id={}", commentId);
+    }
+
+    private CommentVO toVO(Comment comment) {
+        User author = userMapper.selectById(comment.getAuthorId());
+        UserVO authorVO = null;
+        if (author != null) {
+            authorVO = UserVO.builder()
+                    .id(author.getId())
+                    .nickname(author.getNickname())
+                    .avatarUrl(author.getAvatarUrl())
+                    .build();
+        }
+
+        return CommentVO.builder()
+                .id(comment.getId())
+                .postId(comment.getPostId())
+                .parentId(comment.getParentId())
+                .replyToId(comment.getReplyToId())
+                .authorId(comment.getAuthorId())
+                .author(authorVO)
+                .content(comment.getContent())
+                .likeCount(comment.getLikeCount())
+                .createdAt(comment.getCreatedAt())
+                .build();
+    }
+}

@@ -1,0 +1,368 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { NCard, NButton, NInput, NTag, NSpace, NSpin, useMessage } from 'naive-ui';
+import { getPostById, deletePost, toggleReaction } from '@/api/posts';
+import { createComment, getComments, deleteComment } from '@/api/comments';
+import { useAuthStore } from '@/stores/auth';
+import type { PostVO, CommentVO } from '@/types/post';
+
+const route = useRoute();
+const router = useRouter();
+const message = useMessage();
+const authStore = useAuthStore();
+
+const post = ref<PostVO | null>(null);
+const comments = ref<CommentVO[]>([]);
+const loading = ref(true);
+const commentText = ref('');
+const replyTo = ref<{ id: number; nickname: string } | null>(null);
+const submitting = ref(false);
+
+const currentUserId = authStore.user?.id;
+
+async function loadPost() {
+  loading.value = true;
+  try {
+    const id = Number(route.params.id);
+    post.value = await getPostById(id);
+    comments.value = await getComments(id);
+  } catch {
+    post.value = null;
+  }
+  loading.value = false;
+}
+
+async function handleLike() {
+  if (!post.value) return;
+  try {
+    const liked = await toggleReaction(post.value.id, 'LIKE');
+    post.value.liked = liked;
+    post.value.likeCount += liked ? 1 : -1;
+  } catch {
+    message.error('操作失败');
+  }
+}
+
+async function handleDeletePost() {
+  if (!post.value) return;
+  try {
+    await deletePost(post.value.id);
+    message.success('已删除');
+    router.replace('/square');
+  } catch {
+    message.error('删除失败');
+  }
+}
+
+function handleReply(comment: CommentVO) {
+  replyTo.value = { id: comment.id, nickname: comment.author?.nickname || '匿名' };
+  commentText.value = '';
+}
+
+function cancelReply() {
+  replyTo.value = null;
+  commentText.value = '';
+}
+
+async function submitComment() {
+  if (!post.value || !commentText.value.trim()) return;
+  submitting.value = true;
+  try {
+    const data = {
+      postId: post.value.id,
+      parentId: replyTo.value?.id,
+      replyToId: replyTo.value?.id,
+      content: commentText.value,
+    };
+    await createComment(data);
+    message.success('评论成功');
+    commentText.value = '';
+    replyTo.value = null;
+    // 重新加载评论
+    comments.value = await getComments(post.value.id);
+    if (post.value) post.value.commentCount++;
+  } catch {
+    message.error('评论失败');
+  }
+  submitting.value = false;
+}
+
+async function handleDeleteComment(commentId: number) {
+  try {
+    await deleteComment(commentId);
+    message.success('已删除');
+    if (post.value) {
+      comments.value = await getComments(post.value.id);
+      post.value.commentCount--;
+    }
+  } catch {
+    message.error('删除失败');
+  }
+}
+
+onMounted(loadPost);
+</script>
+
+<template>
+  <div class="detail-page">
+    <template v-if="loading">
+      <div class="loading"><NSpin /></div>
+    </template>
+
+    <template v-else-if="post">
+      <NCard class="post-content">
+        <div class="post-header">
+          <div class="author-info">
+            <div class="avatar">{{ post.author?.nickname?.charAt(0) || '?' }}</div>
+            <div>
+              <div class="author-name">{{ post.author?.nickname || '匿名' }}</div>
+              <div class="post-time">{{ new Date(post.createdAt).toLocaleString() }}</div>
+            </div>
+          </div>
+          <NSpace>
+            <NTag v-if="post.isEssence === 1" type="warning" size="small">精华</NTag>
+            <NButton
+              v-if="currentUserId === post.authorId"
+              size="small"
+              type="error"
+              @click="handleDeletePost"
+            >
+              删除
+            </NButton>
+          </NSpace>
+        </div>
+
+        <h2 v-if="post.title" class="post-title">{{ post.title }}</h2>
+        <p class="post-body">{{ post.content }}</p>
+
+        <NSpace v-if="post.topics && post.topics.length" class="topics">
+          <NTag v-for="t in post.topics" :key="t" size="small">{{ t }}</NTag>
+        </NSpace>
+
+        <div class="post-stats">
+          <NButton
+            :type="post.liked ? 'primary' : 'default'"
+            size="small"
+            @click="handleLike"
+          >
+            {{ post.liked ? '已赞' : '点赞' }} ({{ post.likeCount }})
+          </NButton>
+          <span>{{ post.viewCount }} 浏览</span>
+          <span>{{ post.commentCount }} 评论</span>
+        </div>
+      </NCard>
+
+      <!-- 评论区 -->
+      <NCard class="comments-section">
+        <h3>评论 ({{ post.commentCount }})</h3>
+
+        <!-- 发表评论 -->
+        <div class="comment-form">
+          <div v-if="replyTo" class="reply-hint">
+            回复 @{{ replyTo.nickname }}
+            <NButton size="tiny" text @click="cancelReply">取消</NButton>
+          </div>
+          <NInput
+            v-model:value="commentText"
+            type="textarea"
+            placeholder="写评论..."
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+          <NButton
+            type="primary"
+            size="small"
+            :loading="submitting"
+            :disabled="!commentText.trim()"
+            class="submit-btn"
+            @click="submitComment"
+          >
+            发表
+          </NButton>
+        </div>
+
+        <!-- 评论列表 -->
+        <div v-for="c in comments" :key="c.id" class="comment-item">
+          <div class="comment-avatar">{{ c.author?.nickname?.charAt(0) || '?' }}</div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="comment-author">{{ c.author?.nickname || '匿名' }}</span>
+              <span class="comment-time">{{ new Date(c.createdAt).toLocaleDateString() }}</span>
+            </div>
+            <p class="comment-text">{{ c.content }}</p>
+            <div class="comment-actions">
+              <NButton size="tiny" text @click="handleReply(c)">回复</NButton>
+              <NButton
+                v-if="currentUserId === c.authorId"
+                size="tiny"
+                text
+                type="error"
+                @click="handleDeleteComment(c.id)"
+              >
+                删除
+              </NButton>
+            </div>
+
+            <!-- 子评论 -->
+            <div v-if="c.replies && c.replies.length" class="replies">
+              <div v-for="r in c.replies" :key="r.id" class="reply-item">
+                <span class="reply-author">{{ r.author?.nickname || '匿名' }}</span>
+                <span class="reply-text">{{ r.content }}</span>
+                <span class="reply-time">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="comments.length === 0" class="no-comments">
+          <p>暂无评论</p>
+        </div>
+      </NCard>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.detail-page {
+  max-width: 720px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+.loading {
+  text-align: center;
+  padding: 80px;
+}
+.post-content {
+  margin-bottom: 20px;
+}
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #18a058;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+.author-name {
+  font-weight: 600;
+}
+.post-time {
+  color: #999;
+  font-size: 12px;
+}
+.post-title {
+  margin: 0 0 12px;
+}
+.post-body {
+  line-height: 1.8;
+  white-space: pre-wrap;
+  margin-bottom: 16px;
+}
+.topics {
+  margin-bottom: 16px;
+}
+.post-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: #666;
+}
+.comments-section h3 {
+  margin: 0 0 16px;
+}
+.comment-form {
+  margin-bottom: 24px;
+}
+.reply-hint {
+  color: #18a058;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.submit-btn {
+  margin-top: 8px;
+}
+.comment-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #18a058;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.comment-body {
+  flex: 1;
+}
+.comment-header {
+  margin-bottom: 4px;
+}
+.comment-author {
+  font-weight: 600;
+  font-size: 14px;
+  margin-right: 8px;
+}
+.comment-time {
+  color: #999;
+  font-size: 12px;
+}
+.comment-text {
+  margin: 4px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.comment-actions {
+  margin-top: 4px;
+}
+.replies {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+.reply-item {
+  padding: 4px 0;
+  font-size: 13px;
+}
+.reply-author {
+  font-weight: 600;
+  margin-right: 8px;
+}
+.reply-text {
+  color: #333;
+}
+.reply-time {
+  color: #999;
+  font-size: 11px;
+  margin-left: 8px;
+}
+.no-comments {
+  text-align: center;
+  color: #999;
+  padding: 24px;
+}
+</style>

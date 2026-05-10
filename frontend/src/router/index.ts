@@ -32,6 +32,24 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/UserPage.vue'),
   },
   {
+    path: '/square',
+    name: 'square',
+    component: () => import('@/pages/Square.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/posts/new',
+    name: 'post-create',
+    component: () => import('@/pages/PostCreate.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/posts/:id',
+    name: 'post-detail',
+    component: () => import('@/pages/PostDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('@/pages/AdminUsers.vue'),
