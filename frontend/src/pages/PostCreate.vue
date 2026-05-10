@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NInput, NCard, NSpace, NTag, useMessage } from 'naive-ui';
+import { NButton, NInput, NSelect, NInputNumber, NCard, NSpace, NTag, useMessage } from 'naive-ui';
 import { createPost } from '@/api/posts';
 
 const router = useRouter();
@@ -9,9 +9,18 @@ const message = useMessage();
 
 const title = ref('');
 const content = ref('');
+const postType = ref('NORMAL');
+const bountyPoints = ref(0);
 const topicInput = ref('');
 const topics = ref<string[]>([]);
 const loading = ref(false);
+
+const typeOptions = [
+  { label: '普通帖子', value: 'NORMAL' },
+  { label: '悬赏问答', value: 'QA' },
+];
+
+const isQa = computed(() => postType.value === 'QA');
 
 function addTopic() {
   const t = topicInput.value.trim();
@@ -30,6 +39,10 @@ async function submit() {
     message.warning('请输入内容');
     return;
   }
+  if (isQa.value && !title.value.trim()) {
+    message.warning('悬赏问答需要填写标题');
+    return;
+  }
   loading.value = true;
   try {
     const post = await createPost({
@@ -37,7 +50,8 @@ async function submit() {
       content: content.value,
       topics: topics.value.length > 0 ? topics.value : undefined,
       scope: 'SQUARE',
-      type: 'NORMAL',
+      type: postType.value,
+      bountyPoints: isQa.value ? bountyPoints.value : undefined,
     });
     message.success('发布成功');
     router.push(`/posts/${post.id}`);
@@ -56,7 +70,14 @@ function cancel() {
   <div class="create-page">
     <NCard title="发帖">
       <div class="form">
+        <NSelect v-model:value="postType" :options="typeOptions" />
+
         <NInput v-model:value="title" placeholder="标题（可选）" class="field" maxlength="255" />
+
+        <div v-if="isQa" class="bounty-row">
+          <label>悬赏积分</label>
+          <NInputNumber v-model:value="bountyPoints" :min="0" :max="1000" />
+        </div>
 
         <NInput
           v-model:value="content"
@@ -99,6 +120,15 @@ function cancel() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.bounty-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bounty-row label {
+  font-size: 14px;
+  color: #666;
 }
 .topic-row {
   display: flex;

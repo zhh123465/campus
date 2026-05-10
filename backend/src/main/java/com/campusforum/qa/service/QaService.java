@@ -1,0 +1,74 @@
+package com.campusforum.qa.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.campusforum.common.BusinessException;
+import com.campusforum.common.ErrorCode;
+import com.campusforum.post.domain.Post;
+import com.campusforum.post.mapper.PostMapper;
+import com.campusforum.qa.domain.QaQuestion;
+import com.campusforum.qa.dto.QaQuestionVO;
+import com.campusforum.qa.mapper.QaQuestionMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class QaService {
+
+    private final QaQuestionMapper qaQuestionMapper;
+    private final PostMapper postMapper;
+
+    public QaQuestionVO getByPostId(Long postId) {
+        QaQuestion qa = qaQuestionMapper.selectOne(new LambdaQueryWrapper<QaQuestion>()
+                .eq(QaQuestion::getPostId, postId));
+        if (qa == null) return null;
+        return toVO(qa);
+    }
+
+    @Transactional
+    public QaQuestionVO accept(Long postId, Long commentId, Long userId) {
+        Post post = postMapper.selectById(postId);
+        if (post == null || post.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        if (!"QA".equals(post.getType())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "该帖子不是问答类型");
+        }
+        if (!post.getAuthorId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN.getCode(), "仅提问者可以采纳答案");
+        }
+
+        QaQuestion qa = qaQuestionMapper.selectOne(new LambdaQueryWrapper<QaQuestion>()
+                .eq(QaQuestion::getPostId, postId));
+        if (qa == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "问答信息不存在");
+        }
+        if (qa.getIsSolved() == 1) {
+            throw new BusinessException(ErrorCode.QUESTION_ALREADY_SOLVED);
+        }
+
+        qa.setIsSolved(1);
+        qa.setAcceptedCommentId(commentId);
+        qa.setSolvedAt(LocalDateTime.now());
+        qaQuestionMapper.updateById(qa);
+
+        log.info("Answer accepted: postId={}, commentId={}", postId, commentId);
+        return toVO(qa);
+    }
+
+    private QaQuestionVO toVO(QaQuestion qa) {
+        return QaQuestionVO.builder()
+                .id(qa.getId())
+                .postId(qa.getPostId())
+                .bountyPoints(qa.getBountyPoints())
+                .isSolved(qa.getIsSolved() == 1)
+                .acceptedCommentId(qa.getAcceptedCommentId())
+                .solvedAt(qa.getSolvedAt())
+                .build();
+    }
+}

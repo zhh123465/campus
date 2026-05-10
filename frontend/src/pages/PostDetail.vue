@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NInput, NTag, NSpace, NSpin, useMessage } from 'naive-ui';
 import { getPostById, deletePost, toggleReaction } from '@/api/posts';
 import { createComment, getComments, deleteComment } from '@/api/comments';
+import { getQaInfo, acceptAnswer } from '@/api/qa';
 import { useAuthStore } from '@/stores/auth';
 import type { PostVO, CommentVO } from '@/types/post';
+import type { QaQuestionVO } from '@/types/qa';
 
 const route = useRoute();
 const router = useRouter();
@@ -13,13 +15,17 @@ const message = useMessage();
 const authStore = useAuthStore();
 
 const post = ref<PostVO | null>(null);
+const qa = ref<QaQuestionVO | null>(null);
 const comments = ref<CommentVO[]>([]);
 const loading = ref(true);
 const commentText = ref('');
 const replyTo = ref<{ id: number; nickname: string } | null>(null);
 const submitting = ref(false);
+const acceptingId = ref<number | null>(null);
 
 const currentUserId = authStore.user?.id;
+const isQaPost = () => post.value?.type === 'QA';
+const isPostAuthor = () => currentUserId === post.value?.authorId;
 
 async function loadPost() {
   loading.value = true;
@@ -27,10 +33,25 @@ async function loadPost() {
     const id = Number(route.params.id);
     post.value = await getPostById(id);
     comments.value = await getComments(id);
+    if (post.value?.type === 'QA') {
+      qa.value = await getQaInfo(id);
+    }
   } catch {
     post.value = null;
   }
   loading.value = false;
+}
+
+async function handleAccept(commentId: number) {
+  if (!post.value) return;
+  acceptingId.value = commentId;
+  try {
+    qa.value = await acceptAnswer(post.value.id, commentId);
+    message.success('已采纳该回答');
+  } catch (e: any) {
+    message.error(e.message || '采纳失败');
+  }
+  acceptingId.value = null;
 }
 
 async function handleLike() {
@@ -140,6 +161,13 @@ onMounted(loadPost);
           <NTag v-for="t in post.topics" :key="t" size="small">{{ t }}</NTag>
         </NSpace>
 
+        <!-- QA 信息 -->
+        <div v-if="isQaPost() && qa" class="qa-info">
+          <NTag type="warning" size="small">悬赏 {{ qa.bountyPoints }} 积分</NTag>
+          <NTag v-if="qa.isSolved" type="success" size="small">已解决</NTag>
+          <NTag v-else type="info" size="small">待解决</NTag>
+        </div>
+
         <div class="post-stats">
           <NButton
             :type="post.liked ? 'primary' : 'default'"
@@ -193,6 +221,16 @@ onMounted(loadPost);
             <div class="comment-actions">
               <NButton size="tiny" text @click="handleReply(c)">回复</NButton>
               <NButton
+                v-if="isQaPost() && isPostAuthor() && !qa?.isSolved"
+                size="tiny"
+                text
+                type="success"
+                :loading="acceptingId === c.id"
+                @click="handleAccept(c.id)"
+              >
+                采纳
+              </NButton>
+              <NButton
                 v-if="currentUserId === c.authorId"
                 size="tiny"
                 text
@@ -202,6 +240,7 @@ onMounted(loadPost);
                 删除
               </NButton>
             </div>
+            <NTag v-if="qa?.acceptedCommentId === c.id" type="success" size="tiny">已采纳</NTag>
 
             <!-- 子评论 -->
             <div v-if="c.replies && c.replies.length" class="replies">
@@ -274,6 +313,9 @@ onMounted(loadPost);
   margin-bottom: 16px;
 }
 .topics {
+  margin-bottom: 16px;
+}
+.qa-info {
   margin-bottom: 16px;
 }
 .post-stats {

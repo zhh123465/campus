@@ -1,15 +1,16 @@
 package com.campusforum.post.domain;
 
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.campusforum.common.BaseEntity;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @TableName("comments")
-public class Comment extends BaseEntity {
-
+public class Comment {
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    private Long tenantId;
     private Long postId;
     private Long parentId;
     private Long replyToId;
@@ -17,4 +18,8 @@ public class Comment extends BaseEntity {
     private String content;
     private Integer likeCount;
     private Integer status;
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createdAt;
+    @TableLogic
+    private Integer deleted;
 }

@@ -12,6 +12,8 @@ import com.campusforum.post.dto.PostVO;
 import com.campusforum.post.dto.ReactionRequest;
 import com.campusforum.post.mapper.PostMapper;
 import com.campusforum.post.mapper.ReactionMapper;
+import com.campusforum.qa.domain.QaQuestion;
+import com.campusforum.qa.mapper.QaQuestionMapper;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
@@ -33,6 +35,7 @@ public class PostService {
     private final PostMapper postMapper;
     private final ReactionMapper reactionMapper;
     private final UserMapper userMapper;
+    private final QaQuestionMapper qaQuestionMapper;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -59,6 +62,16 @@ public class PostService {
         }
 
         postMapper.insert(post);
+
+        // QA 类型帖子：创建问答扩展记录
+        if ("QA".equals(req.getType())) {
+            QaQuestion qa = new QaQuestion();
+            qa.setPostId(post.getId());
+            qa.setBountyPoints(req.getBountyPoints() != null ? req.getBountyPoints() : 0);
+            qa.setIsSolved(0);
+            qaQuestionMapper.insert(qa);
+        }
+
         log.info("Post created: id={}, authorId={}", post.getId(), userId);
         return toVO(post, userId);
     }

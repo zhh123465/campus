@@ -24,4 +24,5 @@ public class CreatePostRequest {
 
     private List<String> topics;
     private List<String> tags;
+    private Integer bountyPoints = 0;
 }
