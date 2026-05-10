@@ -1,0 +1,318 @@
+package com.campusforum.space.service;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.campusforum.common.BusinessException;
+import com.campusforum.common.ErrorCode;
+import com.campusforum.space.domain.Space;
+import com.campusforum.space.domain.SpaceMember;
+import com.campusforum.space.dto.*;
+import com.campusforum.space.mapper.SpaceMapper;
+import com.campusforum.space.mapper.SpaceMemberMapper;
+import com.campusforum.user.domain.User;
+import com.campusforum.user.dto.UserVO;
+import com.campusforum.user.mapper.UserMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SpaceService {
+
+    private final SpaceMapper spaceMapper;
+    private final SpaceMemberMapper memberMapper;
+    private final UserMapper userMapper;
+
+    @Transactional
+    public SpaceVO create(Long userId, CreateSpaceRequest req) {
+        Space space = new Space();
+        space.setOwnerId(userId);
+        space.setName(req.getName());
+        space.setDescription(req.getDescription());
+        space.setCategory(req.getCategory());
+        space.setVisibility(req.getVisibility());
+        space.setMemberCount(1);
+        space.setPostCount(0);
+        space.setStatus(1);
+
+        spaceMapper.insert(space);
+
+        // owner 自动成为成员
+        SpaceMember member = new SpaceMember();
+        member.setSpaceId(space.getId());
+        member.setUserId(userId);
+        member.setRole("OWNER");
+        member.setStatus(1);
+        member.setJoinedAt(LocalDateTime.now());
+        memberMapper.insert(member);
+
+        log.info("Space created: id={}, name={}", space.getId(), space.getName());
+        return toVO(space, userId, "OWNER", true);
+    }
+
+    public SpaceVO getById(Long spaceId) {
+        Space space = spaceMapper.selectById(spaceId);
+        if (space == null || space.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.SPACE_NOT_FOUND);
+        }
+
+        Long currentUserId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        String memberRole = null;
+        boolean isMember = false;
+
+        if (currentUserId != null) {
+            SpaceMember member = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                    .eq(SpaceMember::getSpaceId, spaceId)
+                    .eq(SpaceMember::getUserId, currentUserId)
+                    .eq(SpaceMember::getStatus, 1));
+            if (member != null) {
+                memberRole = member.getRole();
+                isMember = true;
+            }
+        }
+
+        return toVO(space, currentUserId, memberRole, isMember);
+    }
+
+    public List<SpaceVO> list(String category, Long cursor, int limit) {
+        int size = Math.min(limit, 50);
+        LambdaQueryWrapper<Space> qw = new LambdaQueryWrapper<>();
+        qw.eq(Space::getStatus, 1);
+        if (category != null && !category.isBlank()) {
+            qw.eq(Space::getCategory, category);
+        }
+        if (cursor != null) {
+            qw.lt(Space::getId, cursor);
+        }
+        qw.orderByDesc(Space::getMemberCount, Space::getId);
+        qw.last("LIMIT " + size);
+
+        List<Space> spaces = spaceMapper.selectList(qw);
+        Long currentUserId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        return spaces.stream().map(s -> toVO(s, currentUserId, null, false)).toList();
+    }
+
+    @Transactional
+    public SpaceVO update(Long spaceId, Long userId, UpdateSpaceRequest req) {
+        Space space = spaceMapper.selectById(spaceId);
+        if (space == null || space.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.SPACE_NOT_FOUND);
+        }
+
+        checkOwnership(spaceId, userId, space);
+
+        if (req.getName() != null) space.setName(req.getName());
+        if (req.getDescription() != null) space.setDescription(req.getDescription());
+        if (req.getVisibility() != null) space.setVisibility(req.getVisibility());
+
+        spaceMapper.updateById(space);
+        return getById(spaceId);
+    }
+
+    @Transactional
+    public SpaceVO join(Long spaceId, Long userId) {
+        Space space = spaceMapper.selectById(spaceId);
+        if (space == null || space.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.SPACE_NOT_FOUND);
+        }
+
+        // 检查是否已加入
+        SpaceMember existing = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                .eq(SpaceMember::getSpaceId, spaceId)
+                .eq(SpaceMember::getUserId, userId));
+        if (existing != null && existing.getStatus() == 1) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "已是该空间成员");
+        }
+
+        int memberStatus = "PUBLIC".equals(space.getVisibility()) ? 1 : 0;
+
+        if (existing != null) {
+            existing.setStatus(memberStatus);
+            existing.setJoinedAt(LocalDateTime.now());
+            memberMapper.updateById(existing);
+        } else {
+            SpaceMember member = new SpaceMember();
+            member.setSpaceId(spaceId);
+            member.setUserId(userId);
+            member.setRole("MEMBER");
+            member.setStatus(memberStatus);
+            member.setJoinedAt(LocalDateTime.now());
+            memberMapper.insert(member);
+        }
+
+        // 更新成员数
+        if (memberStatus == 1) {
+            space.setMemberCount(space.getMemberCount() + 1);
+            spaceMapper.updateById(space);
+        }
+
+        log.info("User {} joined space {}", userId, spaceId);
+        Space refreshed = spaceMapper.selectById(spaceId);
+        String role = "MEMBER";
+        return toVO(refreshed, userId, role, memberStatus == 1);
+    }
+
+    @Transactional
+    public void leave(Long spaceId, Long userId) {
+        Space space = spaceMapper.selectById(spaceId);
+        if (space == null || space.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.SPACE_NOT_FOUND);
+        }
+        if (space.getOwnerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "群主不能退出，请转让群主或解散空间");
+        }
+
+        SpaceMember member = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                .eq(SpaceMember::getSpaceId, spaceId)
+                .eq(SpaceMember::getUserId, userId)
+                .eq(SpaceMember::getStatus, 1));
+        if (member == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "不是该空间成员");
+        }
+
+        member.setStatus(2); // 已退出
+        memberMapper.updateById(member);
+
+        space.setMemberCount(Math.max(0, space.getMemberCount() - 1));
+        spaceMapper.updateById(space);
+
+        log.info("User {} left space {}", userId, spaceId);
+    }
+
+    public List<SpaceMemberVO> listMembers(Long spaceId, Long cursor, int limit) {
+        int size = Math.min(limit, 100);
+        LambdaQueryWrapper<SpaceMember> qw = new LambdaQueryWrapper<>();
+        qw.eq(SpaceMember::getSpaceId, spaceId);
+        qw.eq(SpaceMember::getStatus, 1);
+        if (cursor != null) {
+            qw.gt(SpaceMember::getId, cursor);
+        }
+        qw.orderByAsc(SpaceMember::getId);
+        qw.last("LIMIT " + size);
+
+        return memberMapper.selectList(qw).stream().map(m -> {
+            User user = userMapper.selectById(m.getUserId());
+            return SpaceMemberVO.builder()
+                    .id(m.getId())
+                    .spaceId(m.getSpaceId())
+                    .userId(m.getUserId())
+                    .user(user != null ? UserVO.builder()
+                            .id(user.getId())
+                            .nickname(user.getNickname())
+                            .avatarUrl(user.getAvatarUrl())
+                            .build() : null)
+                    .role(m.getRole())
+                    .status(m.getStatus())
+                    .joinedAt(m.getJoinedAt())
+                    .build();
+        }).toList();
+    }
+
+    @Transactional
+    public void approveMember(Long spaceId, Long operatorId, Long targetUserId) {
+        checkOwnership(spaceId, operatorId, null);
+
+        SpaceMember member = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                .eq(SpaceMember::getSpaceId, spaceId)
+                .eq(SpaceMember::getUserId, targetUserId)
+                .eq(SpaceMember::getStatus, 0));
+        if (member == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "无待审核申请");
+        }
+
+        member.setStatus(1);
+        member.setJoinedAt(LocalDateTime.now());
+        memberMapper.updateById(member);
+
+        Space space = spaceMapper.selectById(spaceId);
+        space.setMemberCount(space.getMemberCount() + 1);
+        spaceMapper.updateById(space);
+        log.info("Space {} member {} approved", spaceId, targetUserId);
+    }
+
+    @Transactional
+    public void removeMember(Long spaceId, Long operatorId, Long targetUserId) {
+        checkOwnership(spaceId, operatorId, null);
+
+        SpaceMember member = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                .eq(SpaceMember::getSpaceId, spaceId)
+                .eq(SpaceMember::getUserId, targetUserId)
+                .eq(SpaceMember::getStatus, 1));
+        if (member == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "该用户不是空间成员");
+        }
+        if ("OWNER".equals(member.getRole())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "不能移除空间主");
+        }
+
+        member.setStatus(3); // 已拒绝/踢出
+        memberMapper.updateById(member);
+
+        Space space = spaceMapper.selectById(spaceId);
+        space.setMemberCount(Math.max(0, space.getMemberCount() - 1));
+        spaceMapper.updateById(space);
+    }
+
+    @Transactional
+    public void dismiss(Long spaceId, Long userId) {
+        Space space = spaceMapper.selectById(spaceId);
+        if (space == null || space.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.SPACE_NOT_FOUND);
+        }
+
+        String role = (String) StpUtil.getSession().get("role");
+        if (!space.getOwnerId().equals(userId) && !"TENANT_ADMIN".equals(role) && !"SUPER_ADMIN".equals(role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        spaceMapper.deleteById(spaceId);
+        log.info("Space dismissed: id={}", spaceId);
+    }
+
+    private void checkOwnership(Long spaceId, Long userId, Space space) {
+        Space s = space != null ? space : spaceMapper.selectById(spaceId);
+        SpaceMember member = memberMapper.selectOne(new LambdaQueryWrapper<SpaceMember>()
+                .eq(SpaceMember::getSpaceId, spaceId)
+                .eq(SpaceMember::getUserId, userId)
+                .eq(SpaceMember::getStatus, 1));
+        boolean isOwnerOrAdmin = member != null &&
+                ("OWNER".equals(member.getRole()) || "ADMIN".equals(member.getRole()));
+        if (!s.getOwnerId().equals(userId) && !isOwnerOrAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private SpaceVO toVO(Space space, Long currentUserId, String memberRole, boolean isMember) {
+        User owner = userMapper.selectById(space.getOwnerId());
+        UserVO ownerVO = null;
+        if (owner != null) {
+            ownerVO = UserVO.builder()
+                    .id(owner.getId())
+                    .nickname(owner.getNickname())
+                    .avatarUrl(owner.getAvatarUrl())
+                    .build();
+        }
+
+        return SpaceVO.builder()
+                .id(space.getId())
+                .ownerId(space.getOwnerId())
+                .owner(ownerVO)
+                .name(space.getName())
+                .description(space.getDescription())
+                .category(space.getCategory())
+                .visibility(space.getVisibility())
+                .memberCount(space.getMemberCount())
+                .postCount(space.getPostCount())
+                .status(space.getStatus())
+                .isMember(isMember)
+                .memberRole(memberRole)
+                .createdAt(space.getCreatedAt())
+                .build();
+    }
+}

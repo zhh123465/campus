@@ -50,6 +50,24 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/spaces',
+    name: 'spaces',
+    component: () => import('@/pages/Spaces.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/spaces/new',
+    name: 'space-create',
+    component: () => import('@/pages/SpaceCreate.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/spaces/:id',
+    name: 'space-detail',
+    component: () => import('@/pages/SpaceDetail.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('@/pages/AdminUsers.vue'),
