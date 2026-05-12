@@ -19,15 +19,23 @@ services:
       dockerfile: Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - REDIS_HOST=redis
-      - JWT_SECRET=${JWT_SECRET}
+      - SA_TOKEN_JWT_SECRET_KEY=${JWT_SECRET}
       - TENANT_MODE=${TENANT_MODE}
       - AI_PROVIDER=${AI_PROVIDER}
       - AI_API_KEY=${AI_API_KEY}
+      - AI_BASE_URL=${AI_BASE_URL}
+      - AI_MODEL=${AI_MODEL}
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+      - STORAGE_MINIO_ENDPOINT=http://minio:9000
+      - SEARCH_MEILISEARCH_HOST=http://meilisearch:7700
+    ports:
+      - "8080:8080"
     depends_on:
       mysql:
         condition: service_healthy

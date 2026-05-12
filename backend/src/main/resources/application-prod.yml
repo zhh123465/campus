@@ -1,0 +1,40 @@
+# ===== 生产环境配置 (Docker) =====
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: 6379
+
+logging:
+  level:
+    com.campusforum: INFO
+
+ai:
+  provider: ${AI_PROVIDER:mock}
+  base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:deepseek-chat}
+
+storage:
+  type: minio
+  minio:
+    endpoint: ${STORAGE_MINIO_ENDPOINT:http://minio:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: campusforum
+
+search:
+  type: meilisearch
+  meilisearch:
+    host: ${SEARCH_MEILISEARCH_HOST:http://meilisearch:7700}
+    api-key: ${MEILI_MASTER_KEY:masterKey}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
