@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.notify.domain.Notification;
 import com.campusforum.notify.dto.NotificationVO;
 import com.campusforum.notify.mapper.NotificationMapper;
+import com.campusforum.notify.websocket.SessionRegistry;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
@@ -21,6 +22,7 @@ public class NotifyService {
 
     private final NotificationMapper notificationMapper;
     private final UserMapper userMapper;
+    private final SessionRegistry sessionRegistry;
 
     @Transactional
     public void create(Long receiverId, Long senderId, String type, String title, String content, String redirectUrl) {
@@ -37,6 +39,16 @@ public class NotifyService {
 
         notificationMapper.insert(notif);
         log.debug("Notification created: type={}, receiver={}", type, receiverId);
+
+        // Push via WebSocket
+        try {
+            String typeStr = type != null ? type : "";
+            String titleStr = title != null ? title : "";
+            String payload = "{\"type\":\"" + typeStr + "\",\"title\":\"" + titleStr + "\",\"content\":\"" + (content != null ? content : "") + "\"}";
+            sessionRegistry.sendToUser(receiverId, payload);
+        } catch (Exception ignored) {
+            // WebSocket push is best-effort
+        }
     }
 
     public List<NotificationVO> list(Long userId, Long cursor, int limit) {
