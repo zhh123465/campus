@@ -110,6 +110,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/ai',
+    name: 'ai-assistant',
+    component: () => import('@/pages/AiAssistant.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/notifications',
     name: 'notifications',
     component: () => import('@/pages/Notifications.vue'),
