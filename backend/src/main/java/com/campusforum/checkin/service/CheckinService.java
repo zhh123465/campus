@@ -9,6 +9,7 @@ import com.campusforum.checkin.mapper.CheckinChallengeMapper;
 import com.campusforum.checkin.mapper.CheckinRecordMapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
+import com.campusforum.points.service.PointsService;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
@@ -32,6 +33,7 @@ public class CheckinService {
     private final CheckinChallengeMapper challengeMapper;
     private final CheckinRecordMapper recordMapper;
     private final UserMapper userMapper;
+    private final PointsService pointsService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -165,6 +167,9 @@ public class CheckinService {
             challenge.setMemberCount(challenge.getMemberCount() + 1);
             challengeMapper.updateById(challenge);
         }
+
+        // 打卡奖励 2 积分
+        pointsService.award(userId, 2, "CHECKIN", "打卡挑战 #" + challengeId);
 
         log.info("User {} checked in to challenge {}", userId, challengeId);
         return toRecordVO(record, userId);

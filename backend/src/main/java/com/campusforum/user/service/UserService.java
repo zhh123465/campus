@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
+import com.campusforum.points.service.PointsService;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.LoginRequest;
 import com.campusforum.user.dto.RegisterRequest;
@@ -16,6 +17,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,6 +27,7 @@ import java.util.List;
 public class UserService {
 
     private final UserMapper userMapper;
+    private final PointsService pointsService;
 
     @Transactional
     public UserVO register(RegisterRequest req) {
@@ -73,9 +76,18 @@ public class UserService {
         StpUtil.getSession().set("userId", user.getId());
         StpUtil.getSession().set("role", user.getRole());
 
+        // 每日首次登录奖励 1 积分（检查旧登录日期）
+        LocalDate today = LocalDate.now();
+        boolean firstLoginToday = user.getLastLoginAt() == null
+                || user.getLastLoginAt().toLocalDate().isBefore(today);
+
         // 更新最后登录时间
         user.setLastLoginAt(LocalDateTime.now());
         userMapper.updateById(user);
+
+        if (firstLoginToday) {
+            pointsService.award(user.getId(), 1, "LOGIN", "每日登录");
+        }
 
         log.info("User logged in: id={}", user.getId());
 

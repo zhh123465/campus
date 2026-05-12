@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
 import com.campusforum.notify.service.NotifyService;
+import com.campusforum.points.service.PointsService;
 import com.campusforum.post.domain.Comment;
 import com.campusforum.post.domain.Post;
 import com.campusforum.post.mapper.CommentMapper;
@@ -30,6 +31,7 @@ public class QaService {
     private final CommentMapper commentMapper;
     private final UserMapper userMapper;
     private final NotifyService notifyService;
+    private final PointsService pointsService;
 
     public QaQuestionVO getByPostId(Long postId) {
         QaQuestion qa = qaQuestionMapper.selectOne(new LambdaQueryWrapper<QaQuestion>()
@@ -65,9 +67,19 @@ public class QaService {
         qa.setSolvedAt(LocalDateTime.now());
         qaQuestionMapper.updateById(qa);
 
-        // 通知被采纳的回答者
+        // 通知被采纳的回答者 + 转移悬赏积分
         Comment acceptedComment = commentMapper.selectById(commentId);
         if (acceptedComment != null && !acceptedComment.getAuthorId().equals(userId)) {
+            int bounty = qa.getBountyPoints() != null ? qa.getBountyPoints() : 0;
+            if (bounty > 0) {
+                // 从提问者扣减悬赏积分，转给回答者
+                boolean spent = pointsService.spend(userId, bounty, "BOUNTY",
+                        "悬赏采纳 #" + postId);
+                if (spent) {
+                    pointsService.award(acceptedComment.getAuthorId(), bounty, "ACCEPTED",
+                            "回答被采纳 #" + postId);
+                }
+            }
             User questioner = userMapper.selectById(userId);
             String questionerName = questioner != null ? questioner.getNickname() : "提问者";
             notifyService.create(acceptedComment.getAuthorId(), userId, "ACCEPT",
