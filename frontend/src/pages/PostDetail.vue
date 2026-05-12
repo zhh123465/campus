@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NInput, NTag, NSpace, NSpin, useMessage } from 'naive-ui';
+import { NCard, NButton, NInput, NTag, NSpace, NSpin, NModal, NSelect, useMessage } from 'naive-ui';
 import { getPostById, deletePost, toggleReaction } from '@/api/posts';
 import { createComment, getComments, deleteComment } from '@/api/comments';
 import { getQaInfo, acceptAnswer } from '@/api/qa';
+import { createReport } from '@/api/report';
 import { useAuthStore } from '@/stores/auth';
 import type { PostVO, CommentVO } from '@/types/post';
 import type { QaQuestionVO } from '@/types/qa';
@@ -22,6 +23,47 @@ const commentText = ref('');
 const replyTo = ref<{ id: number; nickname: string } | null>(null);
 const submitting = ref(false);
 const acceptingId = ref<number | null>(null);
+
+// Report state
+const reportModalShow = ref(false);
+const reportTargetId = ref<number>(0);
+const reportTargetType = ref('POST');
+const reportReason = ref('SPAM');
+const reportDesc = ref('');
+const reportSubmitting = ref(false);
+const reportReasons = [
+  { label: '垃圾广告', value: 'SPAM' },
+  { label: '违规内容', value: 'ILLEGAL' },
+  { label: '人身攻击', value: 'ABUSE' },
+  { label: '色情低俗', value: 'PORN' },
+  { label: '虚假信息', value: 'FAKE' },
+  { label: '其他', value: 'OTHER' },
+];
+
+function openReport(targetType: string, targetId: number) {
+  reportTargetType.value = targetType;
+  reportTargetId.value = targetId;
+  reportReason.value = 'SPAM';
+  reportDesc.value = '';
+  reportModalShow.value = true;
+}
+
+async function submitReport() {
+  reportSubmitting.value = true;
+  try {
+    await createReport({
+      targetType: reportTargetType.value,
+      targetId: reportTargetId.value,
+      reason: reportReason.value,
+      description: reportDesc.value || undefined,
+    });
+    message.success('举报已提交');
+    reportModalShow.value = false;
+  } catch {
+    message.error('举报失败');
+  }
+  reportSubmitting.value = false;
+}
 
 const currentUserId = authStore.user?.id;
 const isQaPost = () => post.value?.type === 'QA';
@@ -144,6 +186,13 @@ onMounted(loadPost);
           <NSpace>
             <NTag v-if="post.isEssence === 1" type="warning" size="small">精华</NTag>
             <NButton
+              size="small"
+              type="warning"
+              @click="openReport('POST', post.id)"
+            >
+              举报
+            </NButton>
+            <NButton
               v-if="currentUserId === post.authorId"
               size="small"
               type="error"
@@ -220,6 +269,7 @@ onMounted(loadPost);
             <p class="comment-text">{{ c.content }}</p>
             <div class="comment-actions">
               <NButton size="tiny" text @click="handleReply(c)">回复</NButton>
+              <NButton size="tiny" text type="warning" @click="openReport('COMMENT', c.id)">举报</NButton>
               <NButton
                 v-if="isQaPost() && isPostAuthor() && !qa?.isSolved"
                 size="tiny"
@@ -258,6 +308,28 @@ onMounted(loadPost);
         </div>
       </NCard>
     </template>
+
+    <!-- Report Modal -->
+    <NModal v-model:show="reportModalShow" title="举报">
+      <div style="padding: 16px; width: 400px;">
+        <NSelect
+          v-model:value="reportReason"
+          :options="reportReasons"
+          style="margin-bottom: 12px;"
+          placeholder="选择举报原因"
+        />
+        <NInput
+          v-model:value="reportDesc"
+          type="textarea"
+          placeholder="补充说明（可选）"
+          :autosize="{ minRows: 3, maxRows: 6 }"
+        />
+        <NSpace style="margin-top: 16px; justify-content: flex-end;">
+          <NButton @click="reportModalShow = false">取消</NButton>
+          <NButton type="primary" :loading="reportSubmitting" @click="submitReport">提交</NButton>
+        </NSpace>
+      </div>
+    </NModal>
   </div>
 </template>
 
