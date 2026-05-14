@@ -2,6 +2,7 @@ package com.campusforum.post.domain;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.campusforum.common.BaseEntity;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -27,4 +28,5 @@ public class Post extends BaseEntity {
     private Integer isPinned;
     private Integer isEssence;
     private Integer status;
+    private LocalDateTime pinnedAt;
 }

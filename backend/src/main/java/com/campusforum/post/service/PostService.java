@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -104,6 +105,7 @@ public class PostService {
     }
 
     public List<PostVO> page(PostPageRequest req) {
+        cleanExpiredPins();
         int limit = Math.min(req.getLimit(), 50);
         LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
         qw.eq(Post::getScope, req.getScope());
@@ -213,7 +215,9 @@ public class PostService {
     public void togglePin(Long postId) {
         Post post = postMapper.selectById(postId);
         if (post != null) {
-            post.setIsPinned(post.getIsPinned() == 1 ? 0 : 1);
+            boolean wasPinned = post.getIsPinned() == 1;
+            post.setIsPinned(wasPinned ? 0 : 1);
+            post.setPinnedAt(wasPinned ? null : LocalDateTime.now());
             postMapper.updateById(post);
             meiliSearchClient.indexDocument("posts", buildPostDoc(post));
         }
@@ -336,6 +340,21 @@ public class PostService {
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .build();
+    }
+
+    private void cleanExpiredPins() {
+        LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
+        qw.eq(Post::getIsPinned, 1);
+        qw.isNotNull(Post::getPinnedAt);
+        // Unpin posts pinned more than 30 days ago
+        qw.lt(Post::getPinnedAt, LocalDateTime.now().minusDays(30));
+        List<Post> expired = postMapper.selectList(qw);
+        for (Post p : expired) {
+            p.setIsPinned(0);
+            p.setPinnedAt(null);
+            postMapper.updateById(p);
+            log.info("Auto-unpinned post {}", p.getId());
+        }
     }
 
     private Map<String, Object> buildPostDoc(Post post) {
