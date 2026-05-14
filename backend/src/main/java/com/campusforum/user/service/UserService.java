@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
 import com.campusforum.points.service.PointsService;
+import com.campusforum.user.config.StudentNoMappingProperties;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.LoginRequest;
 import com.campusforum.user.dto.RegisterRequest;
@@ -35,6 +36,7 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PointsService pointsService;
+    private final StudentNoMappingProperties studentNoMapping;
 
     @Transactional
     public UserVO register(RegisterRequest req) {
@@ -59,6 +61,18 @@ public class UserService {
         user.setRole("USER");
         user.setStatus(1);
         user.setPoints(0L);
+
+        // 学号自动识别学院/专业/年级
+        if (req.getStudentNo() != null && !req.getStudentNo().isBlank()) {
+            for (StudentNoMappingProperties.MappingEntry entry : studentNoMapping.getMapping()) {
+                if (req.getStudentNo().startsWith(entry.getPrefix())) {
+                    user.setCollege(entry.getCollege());
+                    user.setMajor(entry.getMajor());
+                    user.setGrade(entry.getGrade());
+                    break;
+                }
+            }
+        }
 
         userMapper.insert(user);
         log.info("User registered: id={}, email={}", user.getId(), user.getEmail());
