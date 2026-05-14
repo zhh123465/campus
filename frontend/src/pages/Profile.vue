@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NCard, NInput, NTag, NSpace, useMessage } from 'naive-ui';
-import { getMyProfile, updateProfile } from '@/api/users';
+import { NButton, NCard, NInput, NTag, NSpace, NCheckbox, useMessage } from 'naive-ui';
+import { getMyProfile, updateProfile, getMuteSettings, updateMuteSettings } from '@/api/users';
 import { getUserAchievements } from '@/api/achievement';
 import { getFollowCounts } from '@/api/follows';
 import { useAuthStore } from '@/stores/auth';
@@ -20,6 +20,14 @@ const editing = ref(false);
 const saving = ref(false);
 const followerCount = ref(0);
 const followingCount = ref(0);
+const muteTypes = ref<string[]>([]);
+const notifTypes = [
+  { key: 'LIKE', label: '点赞通知' },
+  { key: 'COMMENT', label: '评论通知' },
+  { key: 'REPLY', label: '回复通知' },
+  { key: 'ACCEPT', label: '采纳通知' },
+  { key: 'JOIN', label: '加入申请通知' },
+];
 
 const editForm = ref({
   nickname: '',
@@ -41,6 +49,11 @@ async function loadProfile() {
     achievements.value = achs;
     followerCount.value = counts.followers;
     followingCount.value = counts.following;
+    try {
+      muteTypes.value = (await getMuteSettings()) || [];
+    } catch {
+      muteTypes.value = [];
+    }
   } catch {
     message.error('获取用户信息失败');
   } finally {
@@ -78,6 +91,20 @@ async function saveProfile() {
     saving.value = false;
   }
 }
+
+async function toggleMute(type: string) {
+    const idx = muteTypes.value.indexOf(type);
+    if (idx >= 0) {
+      muteTypes.value.splice(idx, 1);
+    } else {
+      muteTypes.value.push(type);
+    }
+    try {
+      await updateMuteSettings([...muteTypes.value]);
+    } catch {
+      message.error('设置失败');
+    }
+  }
 
 onMounted(loadProfile);
 </script>
@@ -136,6 +163,18 @@ onMounted(loadProfile);
                 <div class="badge-desc">{{ a.description }}</div>
               </div>
             </div>
+          </div>
+
+          <div class="mute-section">
+            <h4>通知免打扰</h4>
+            <NCheckbox
+              v-for="nt in notifTypes"
+              :key="nt.key"
+              :checked="!muteTypes.includes(nt.key)"
+              @update:checked="toggleMute(nt.key)"
+            >
+              {{ nt.label }}
+            </NCheckbox>
           </div>
 
           <NSpace class="actions">
@@ -254,6 +293,8 @@ onMounted(loadProfile);
   color: #999;
   line-height: 1.3;
 }
+.mute-section { margin-top: 16px; }
+.mute-section h4 { margin: 0 0 8px; font-size: 15px; color: #333; }
 .actions { margin-top: 16px; }
 .edit-form { max-width: 400px; }
 .edit-form label { display: block; margin: 12px 0 4px; font-size: 14px; color: #666; }

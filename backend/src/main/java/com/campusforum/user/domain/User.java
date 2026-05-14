@@ -27,4 +27,5 @@ public class User extends BaseEntity {
     private LocalDateTime lastLoginAt;
     private String resetToken;
     private LocalDateTime resetTokenExpires;
+    private String muteSettings;
 }

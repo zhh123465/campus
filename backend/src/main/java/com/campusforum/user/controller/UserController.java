@@ -9,6 +9,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -26,6 +29,19 @@ public class UserController {
     public R<UserVO> updateMe(@Valid @RequestBody UpdateProfileRequest req) {
         long userId = StpUtil.getLoginIdAsLong();
         return R.ok(userService.updateProfile(userId, req));
+    }
+
+    @GetMapping("/me/mute-settings")
+    public R<Set<String>> getMuteSettings() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return R.ok(userService.getMuteSettings(userId));
+    }
+
+    @PutMapping("/me/mute-settings")
+    public R<?> updateMuteSettings(@RequestBody Map<String, Set<String>> body) {
+        long userId = StpUtil.getLoginIdAsLong();
+        userService.updateMuteSettings(userId, body.getOrDefault("mutedTypes", Set.of()));
+        return R.ok();
     }
 
     @GetMapping("/{id}")

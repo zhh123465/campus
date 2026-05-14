@@ -22,3 +22,12 @@ export async function getUserById(id: number): Promise<UserVO> {
   const res = await request<UserVO>({ method: 'GET', url: `/users/${id}` });
   return res.data;
 }
+
+export async function getMuteSettings(): Promise<string[]> {
+  const res = await request<string[]>({ method: 'GET', url: '/users/me/mute-settings' });
+  return res.data;
+}
+
+export async function updateMuteSettings(mutedTypes: string[]): Promise<void> {
+  await request({ method: 'PUT', url: '/users/me/mute-settings', data: { mutedTypes } });
+}

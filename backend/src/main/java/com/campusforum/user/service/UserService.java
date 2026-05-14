@@ -11,6 +11,9 @@ import com.campusforum.user.dto.RegisterRequest;
 import com.campusforum.user.dto.UpdateProfileRequest;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.mindrot.jbcrypt.BCrypt;
@@ -21,7 +24,9 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -239,6 +244,30 @@ public class UserService {
         user.setRole(role);
         userMapper.updateById(user);
         log.info("User role changed: id={}, role={}", userId, role);
+    }
+
+    private static final ObjectMapper jsonMapper = new ObjectMapper();
+
+    public Set<String> getMuteSettings(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || user.getMuteSettings() == null) return new HashSet<>();
+        try {
+            return jsonMapper.readValue(user.getMuteSettings(), new TypeReference<Set<String>>() {});
+        } catch (JsonProcessingException e) {
+            return new HashSet<>();
+        }
+    }
+
+    @Transactional
+    public void updateMuteSettings(Long userId, Set<String> muteTypes) {
+        User user = userMapper.selectById(userId);
+        if (user == null) throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        try {
+            user.setMuteSettings(jsonMapper.writeValueAsString(muteTypes));
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
+        userMapper.updateById(user);
     }
 
     private UserVO toVO(User user) {

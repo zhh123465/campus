@@ -8,12 +8,17 @@ import com.campusforum.notify.websocket.SessionRegistry;
 import com.campusforum.user.domain.User;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -24,9 +29,24 @@ public class NotifyService {
     private final UserMapper userMapper;
     private final SessionRegistry sessionRegistry;
 
+    private static final ObjectMapper jsonMapper = new ObjectMapper();
+
     @Transactional
     public void create(Long receiverId, Long senderId, String type, String title, String content, String redirectUrl) {
         if (receiverId.equals(senderId)) return;
+
+        // 检查免打扰设置
+        User receiver = userMapper.selectById(receiverId);
+        if (receiver != null && receiver.getMuteSettings() != null) {
+            try {
+                Set<String> muted = jsonMapper.readValue(receiver.getMuteSettings(),
+                        new TypeReference<Set<String>>() {});
+                if (muted.contains(type)) {
+                    log.debug("Notification muted: type={}, receiver={}", type, receiverId);
+                    return;
+                }
+            } catch (JsonProcessingException ignored) {}
+        }
 
         Notification notif = new Notification();
         notif.setReceiverId(receiverId);
