@@ -15,6 +15,7 @@ import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,9 @@ public class SpaceService {
     private final SpaceMemberMapper memberMapper;
     private final UserMapper userMapper;
     private final NotifyService notifyService;
+
+    @Value("${space.max-join-count:20}")
+    private int maxJoinCount;
 
     @Transactional
     public SpaceVO create(Long userId, CreateSpaceRequest req) {
@@ -132,6 +136,17 @@ public class SpaceService {
                 .eq(SpaceMember::getUserId, userId));
         if (existing != null && existing.getStatus() == 1) {
             throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "已是该空间成员");
+        }
+
+        // 检查加入空间数量上限（仅新加入时，非重新申请）
+        if (existing == null) {
+            long joinedCount = memberMapper.selectCount(new LambdaQueryWrapper<SpaceMember>()
+                    .eq(SpaceMember::getUserId, userId)
+                    .eq(SpaceMember::getStatus, 1));
+            if (joinedCount >= maxJoinCount) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(),
+                        "最多加入 " + maxJoinCount + " 个空间");
+            }
         }
 
         int memberStatus = "PUBLIC".equals(space.getVisibility()) ? 1 : 0;

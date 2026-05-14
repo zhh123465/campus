@@ -20,9 +20,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 
 @Slf4j
@@ -42,12 +46,26 @@ public class ResourceService {
             throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "文件名为空");
         }
 
-        String storageKey;
-        try (InputStream is = file.getInputStream()) {
-            storageKey = storageService.upload(is, originalName, file.getContentType());
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.STORAGE_ERROR);
         }
+
+        // MD5 去重
+        String md5 = md5Hex(fileBytes);
+        Resource existing = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getFileMd5, md5)
+                .eq(Resource::getStatus, 1)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            log.info("Duplicate file detected by MD5, reusing existing resource {}", existing.getId());
+            return toVO(existing);
+        }
+
+        String storageKey;
+        storageKey = storageService.upload(new ByteArrayInputStream(fileBytes), originalName, file.getContentType());
 
         String ext = "";
         int dot = originalName.lastIndexOf('.');
@@ -60,6 +78,7 @@ public class ResourceService {
         resource.setFileSize(file.getSize());
         resource.setFileType(ext);
         resource.setStorageKey(storageKey);
+        resource.setFileMd5(md5);
         resource.setVisibility(req.getVisibility() != null ? req.getVisibility() : "PUBLIC");
         resource.setCollege(req.getCollege());
         resource.setMajor(req.getMajor());
@@ -193,5 +212,15 @@ public class ResourceService {
                 .description(r.getDescription())
                 .createdAt(r.getCreatedAt())
                 .build();
+    }
+
+    private static String md5Hex(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(data);
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("MD5 not available", e);
+        }
     }
 }
