@@ -100,6 +100,13 @@
             <version>8.5.10</version>
         </dependency>
 
+        <!-- Alibaba Cloud OSS -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
+
         <!-- Caffeine -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
