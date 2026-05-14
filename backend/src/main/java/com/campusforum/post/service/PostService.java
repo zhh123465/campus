@@ -32,8 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -104,6 +106,10 @@ public class PostService {
         pointsService.award(userId, 5, "POST", "发表帖子 #" + post.getId());
         achievementService.onPostCreated(userId);
         meiliSearchClient.indexDocument("posts", buildPostDoc(post));
+
+        // 解析 @提及 并发送通知
+        notifyMentionedUsers(userId, content, "/posts/" + post.getId());
+
         return toVO(post, userId);
     }
 
@@ -390,6 +396,27 @@ public class PostService {
             p.setPinnedAt(null);
             postMapper.updateById(p);
             log.info("Auto-unpinned post {}", p.getId());
+        }
+    }
+
+    /**
+     * 解析内容中的 @mention 并发送通知给被提及用户。
+     */
+    private void notifyMentionedUsers(Long senderId, String content, String redirectUrl) {
+        if (content == null || content.isBlank()) return;
+        Set<String> mentionedNames = MentionParser.extract(content);
+        if (mentionedNames.isEmpty()) return;
+        User sender = userMapper.selectById(senderId);
+        String senderName = sender != null ? sender.getNickname() : "有人";
+
+        for (String name : mentionedNames) {
+            User mentioned = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getNickname, name));
+            if (mentioned != null && !mentioned.getId().equals(senderId)) {
+                // 避免重复通知（COMMENT/REPLY 通知已发过的情况由 NotifyService 的 sender==receiver 检查处理）
+                notifyService.create(mentioned.getId(), senderId, "MENTION",
+                        "提及通知", senderName + " @了你", redirectUrl);
+            }
         }
     }
 

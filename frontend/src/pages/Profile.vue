@@ -27,6 +27,7 @@ const notifTypes = [
   { key: 'REPLY', label: '回复通知' },
   { key: 'ACCEPT', label: '采纳通知' },
   { key: 'JOIN', label: '加入申请通知' },
+  { key: 'MENTION', label: '@提及通知' },
 ];
 
 const editForm = ref({

@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NButton, NTag, NSpace, NSpin, NEmpty } from 'naive-ui';
 import { getPosts } from '@/api/posts';
+import { renderMentions } from '@/utils/mention';
 import type { PostVO } from '@/types/post';
 
 const router = useRouter();
@@ -113,7 +114,7 @@ onMounted(() => loadPosts(true));
           <NTag v-if="post.isEssence === 1" type="warning" size="small">精华</NTag>
         </div>
         <h3 v-if="post.title" class="post-title">{{ post.title }}</h3>
-        <p class="post-preview">{{ post.content.slice(0, 200) }}{{ post.content.length > 200 ? '...' : '' }}</p>
+        <p class="post-preview" v-html="renderMentions(post.content.slice(0, 200)) + (post.content.length > 200 ? '...' : '')"></p>
         <div class="card-footer">
           <NSpace>
             <span>{{ post.viewCount }} 浏览</span>
@@ -190,6 +191,11 @@ onMounted(() => loadPosts(true));
   font-size: 14px;
   margin: 0 0 12px;
   line-height: 1.6;
+}
+.post-preview :deep(.mention-link) {
+  color: #18a058;
+  text-decoration: none;
+  font-weight: 500;
 }
 .card-footer {
   display: flex;

@@ -6,6 +6,7 @@ import { getPostById, deletePost, toggleReaction } from '@/api/posts';
 import { createComment, getComments, deleteComment } from '@/api/comments';
 import { getQaInfo, acceptAnswer } from '@/api/qa';
 import { createReport } from '@/api/report';
+import { renderMentions } from '@/utils/mention';
 import { useAuthStore } from '@/stores/auth';
 import type { PostVO, CommentVO } from '@/types/post';
 import type { QaQuestionVO } from '@/types/qa';
@@ -211,7 +212,7 @@ onMounted(loadPost);
         </div>
 
         <h2 v-if="post.title" class="post-title">{{ post.title }}</h2>
-        <p class="post-body">{{ post.content }}</p>
+        <p class="post-body" v-html="renderMentions(post.content)"></p>
 
         <NSpace v-if="post.topics && post.topics.length" class="topics">
           <NTag v-for="t in post.topics" :key="t" size="small">{{ t }}</NTag>
@@ -273,7 +274,7 @@ onMounted(loadPost);
               <span class="comment-author">{{ c.author?.nickname || '匿名' }}</span>
               <span class="comment-time">{{ new Date(c.createdAt).toLocaleDateString() }}</span>
             </div>
-            <p class="comment-text">{{ c.content }}</p>
+            <p class="comment-text" v-html="renderMentions(c.content)"></p>
             <div class="comment-actions">
               <NButton size="tiny" text @click="handleReply(c)">回复</NButton>
               <NButton size="tiny" text type="warning" @click="openReport('COMMENT', c.id)">举报</NButton>
@@ -303,7 +304,7 @@ onMounted(loadPost);
             <div v-if="c.replies && c.replies.length" class="replies">
               <div v-for="r in c.replies" :key="r.id" class="reply-item">
                 <span class="reply-author">{{ r.author?.nickname || '匿名' }}</span>
-                <span class="reply-text">{{ r.content }}</span>
+                <span class="reply-text" v-html="renderMentions(r.content)"></span>
                 <span class="reply-time">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
               </div>
             </div>
@@ -390,6 +391,18 @@ onMounted(loadPost);
   line-height: 1.8;
   white-space: pre-wrap;
   margin-bottom: 16px;
+}
+.post-body :deep(.mention-link),
+.comment-text :deep(.mention-link),
+.reply-text :deep(.mention-link) {
+  color: #18a058;
+  text-decoration: none;
+  font-weight: 500;
+}
+.post-body :deep(.mention-link):hover,
+.comment-text :deep(.mention-link):hover,
+.reply-text :deep(.mention-link):hover {
+  text-decoration: underline;
 }
 .topics {
   margin-bottom: 16px;

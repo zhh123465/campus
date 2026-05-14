@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -72,6 +73,17 @@ public class CommentService {
             if (parentComment != null && !parentComment.getAuthorId().equals(userId)) {
                 notifyService.create(parentComment.getAuthorId(), userId, "REPLY",
                         "回复通知", commenterName + " 回复了你", "/posts/" + req.getPostId());
+            }
+        }
+
+        // 解析 @提及 并发送通知
+        Set<String> mentionedNames = MentionParser.extract(req.getContent());
+        for (String name : mentionedNames) {
+            User mentioned = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getNickname, name));
+            if (mentioned != null && !mentioned.getId().equals(userId)) {
+                notifyService.create(mentioned.getId(), userId, "MENTION",
+                        "提及通知", commenterName + " @了你", "/posts/" + req.getPostId());
             }
         }
 
