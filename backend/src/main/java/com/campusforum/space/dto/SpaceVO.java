@@ -22,5 +22,7 @@ public class SpaceVO {
     private Integer status;
     private Boolean isMember;
     private String memberRole;
+    private String sensitiveWords;
+    private String postNotice;
     private LocalDateTime createdAt;
 }

@@ -19,4 +19,6 @@ public class Space extends BaseEntity {
     private Integer memberCount;
     private Integer postCount;
     private Integer status;
+    private String sensitiveWords;
+    private String postNotice;
 }

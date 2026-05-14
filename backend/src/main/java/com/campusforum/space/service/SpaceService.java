@@ -112,6 +112,8 @@ public class SpaceService {
         if (req.getName() != null) space.setName(req.getName());
         if (req.getDescription() != null) space.setDescription(req.getDescription());
         if (req.getVisibility() != null) space.setVisibility(req.getVisibility());
+        if (req.getSensitiveWords() != null) space.setSensitiveWords(req.getSensitiveWords());
+        if (req.getPostNotice() != null) space.setPostNotice(req.getPostNotice());
 
         spaceMapper.updateById(space);
         return getById(spaceId);
@@ -367,6 +369,8 @@ public class SpaceService {
                 .status(space.getStatus())
                 .isMember(isMember)
                 .memberRole(memberRole)
+                .sensitiveWords(space.getSensitiveWords())
+                .postNotice(space.getPostNotice())
                 .createdAt(space.getCreatedAt())
                 .build();
     }

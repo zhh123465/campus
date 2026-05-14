@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NTag, NSpace, NSpin, useMessage } from 'naive-ui';
-import { getSpaceById, joinSpace, leaveSpace, getSpaceMembers, dismissSpace } from '@/api/spaces';
+import { NCard, NButton, NTag, NSpace, NSpin, NInput, NModal, useMessage } from 'naive-ui';
+import { getSpaceById, joinSpace, leaveSpace, getSpaceMembers, dismissSpace, updateSpace } from '@/api/spaces';
 import { getPosts } from '@/api/posts';
 import { useAuthStore } from '@/stores/auth';
 import type { SpaceVO, SpaceMemberVO } from '@/types/space';
@@ -18,6 +18,37 @@ const members = ref<SpaceMemberVO[]>([]);
 const posts = ref<PostVO[]>([]);
 const loading = ref(true);
 const currentUserId = authStore.user?.id;
+const settingsModalShow = ref(false);
+const editSensitiveWords = ref('');
+const editPostNotice = ref('');
+const settingsSaving = ref(false);
+
+const isSpaceAdmin = () => {
+  return space.value?.ownerId === currentUserId || space.value?.memberRole === 'OWNER' || space.value?.memberRole === 'ADMIN';
+};
+
+function openSettings() {
+  editSensitiveWords.value = space.value?.sensitiveWords || '';
+  editPostNotice.value = space.value?.postNotice || '';
+  settingsModalShow.value = true;
+}
+
+async function saveSettings() {
+  if (!space.value) return;
+  settingsSaving.value = true;
+  try {
+    const updated = await updateSpace(space.value.id, {
+      sensitiveWords: editSensitiveWords.value,
+      postNotice: editPostNotice.value,
+    });
+    space.value = updated;
+    message.success('设置已保存');
+    settingsModalShow.value = false;
+  } catch {
+    message.error('保存失败');
+  }
+  settingsSaving.value = false;
+}
 
 async function loadSpace() {
   loading.value = true;
@@ -98,6 +129,16 @@ onMounted(loadSpace);
           <span>{{ space.postCount }} 帖子</span>
           <span>创建者: {{ space.owner?.nickname || '未知' }}</span>
         </div>
+
+        <!-- Post Notice -->
+        <div v-if="space.postNotice" class="notice-box">
+          <strong>发帖须知：</strong>{{ space.postNotice }}
+        </div>
+
+        <!-- Admin Settings Button -->
+        <div v-if="isSpaceAdmin()" class="admin-bar">
+          <NButton size="small" type="info" @click="openSettings">空间设置</NButton>
+        </div>
       </NCard>
 
       <!-- 成员列表 -->
@@ -124,6 +165,34 @@ onMounted(loadSpace);
         <div v-if="posts.length === 0" class="no-posts">暂无帖子</div>
       </NCard>
     </template>
+
+    <!-- Settings Modal -->
+    <NModal v-model:show="settingsModalShow" title="空间设置">
+      <div style="padding: 16px; width: 480px;">
+        <div style="margin-bottom: 12px;">
+          <label style="font-weight: 600; display: block; margin-bottom: 4px;">敏感词（每行一个）</label>
+          <NInput
+            v-model:value="editSensitiveWords"
+            type="textarea"
+            placeholder="每行输入一个敏感词"
+            :autosize="{ minRows: 4, maxRows: 8 }"
+          />
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-weight: 600; display: block; margin-bottom: 4px;">发帖须知</label>
+          <NInput
+            v-model:value="editPostNotice"
+            type="textarea"
+            placeholder="空间发帖须知（Markdown 格式）"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+          />
+        </div>
+        <NSpace style="justify-content: flex-end;">
+          <NButton @click="settingsModalShow = false">取消</NButton>
+          <NButton type="primary" :loading="settingsSaving" @click="saveSettings">保存</NButton>
+        </NSpace>
+      </div>
+    </NModal>
   </div>
 </template>
 
@@ -143,6 +212,16 @@ onMounted(loadSpace);
 .info-header h2 { margin: 0 0 4px; }
 .space-desc { color: #666; margin-bottom: 12px; }
 .stats { display: flex; gap: 16px; font-size: 14px; color: #999; }
+.notice-box {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #fff7e6;
+  border-left: 3px solid #fa8c16;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+.admin-bar { margin-top: 12px; }
 .members-section { margin-top: 20px; }
 .member-item {
   display: flex;

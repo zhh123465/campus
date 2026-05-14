@@ -13,4 +13,10 @@ public class UpdateSpaceRequest {
     private String description;
 
     private String visibility;
+
+    @Size(max = 2000)
+    private String sensitiveWords;
+
+    @Size(max = 2000)
+    private String postNotice;
 }

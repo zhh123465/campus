@@ -18,6 +18,8 @@ export interface SpaceVO {
   status: number;
   isMember: boolean;
   memberRole: string | null;
+  sensitiveWords?: string;
+  postNotice?: string;
   createdAt: string;
 }
 
@@ -42,4 +44,6 @@ export interface UpdateSpaceRequest {
   name?: string;
   description?: string;
   visibility?: string;
+  sensitiveWords?: string;
+  postNotice?: string;
 }
