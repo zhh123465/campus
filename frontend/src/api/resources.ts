@@ -3,14 +3,14 @@ import type { ResourceVO } from '@/types/resource';
 
 export async function uploadResource(
   file: File,
-  data: Record<string, any>,
+  data: Record<string, unknown>,
 ): Promise<ResourceVO> {
   const formData = new FormData();
   formData.append('file', file);
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined && value !== null) {
       if (Array.isArray(value)) {
-        value.forEach((v) => formData.append(key, v));
+        value.forEach((v) => formData.append(key, String(v)));
       } else {
         formData.append(key, String(value));
       }

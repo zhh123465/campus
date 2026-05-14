@@ -79,8 +79,8 @@ async function handleLeave() {
     await leaveSpace(space.value.id);
     message.success('已退出空间');
     loadSpace();
-  } catch (e: any) {
-    message.error(e.message || '退出失败');
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '退出失败');
   }
 }
 
@@ -130,12 +130,12 @@ onMounted(loadSpace);
           <span>创建者: {{ space.owner?.nickname || '未知' }}</span>
         </div>
 
-        <!-- Post Notice -->
+        <!-- 发帖须知 -->
         <div v-if="space.postNotice" class="notice-box">
           <strong>发帖须知：</strong>{{ space.postNotice }}
         </div>
 
-        <!-- Admin Settings Button -->
+        <!-- 管理设置按钮 -->
         <div v-if="isSpaceAdmin()" class="admin-bar">
           <NButton size="small" type="info" @click="openSettings">空间设置</NButton>
         </div>
@@ -166,7 +166,7 @@ onMounted(loadSpace);
       </NCard>
     </template>
 
-    <!-- Settings Modal -->
+    <!-- 设置弹窗 -->
     <NModal v-model:show="settingsModalShow" title="空间设置">
       <div style="padding: 16px; width: 480px;">
         <div style="margin-bottom: 12px;">

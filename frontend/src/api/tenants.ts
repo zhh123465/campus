@@ -13,6 +13,22 @@ export interface TenantVO {
   updatedAt: string;
 }
 
+export interface TenantInfo {
+  id: number;
+  code: string;
+  name: string;
+  logoUrl: string;
+  domain: string;
+  announcement: string;
+}
+
+export interface TenantAiConfig {
+  provider: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export async function getTenants(params?: {
   keyword?: string;
   cursor?: number;
@@ -31,11 +47,8 @@ export async function createTenant(data: {
   return res.data;
 }
 
-export async function getTenantInfo(): Promise<{
-  id: number; code: string; name: string;
-  logoUrl: string; domain: string; announcement: string;
-}> {
-  const res = await request<any>({ method: 'GET', url: '/tenant/info' });
+export async function getTenantInfo(): Promise<TenantInfo> {
+  const res = await request<TenantInfo>({ method: 'GET', url: '/tenant/info' });
   return res.data;
 }
 
@@ -53,10 +66,8 @@ export async function toggleTenantStatus(id: number): Promise<void> {
   await request({ method: 'PUT', url: `/admin/tenants/${id}/status` });
 }
 
-export async function getTenantAiConfig(id: number): Promise<{
-  provider: string; baseUrl: string; apiKey: string; model: string;
-}> {
-  const res = await request<any>({ method: 'GET', url: `/admin/tenants/${id}/ai-config` });
+export async function getTenantAiConfig(id: number): Promise<TenantAiConfig> {
+  const res = await request<TenantAiConfig>({ method: 'GET', url: `/admin/tenants/${id}/ai-config` });
   return res.data;
 }
 

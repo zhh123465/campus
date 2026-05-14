@@ -3,7 +3,7 @@ import { ref, onMounted, h } from 'vue';
 import {
   NDataTable, NButton, NSelect, NInput, NSpace, NTag, NPopconfirm, useMessage,
 } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getAdminPosts, togglePin, toggleEssence, setPostStatus } from '@/api/admin';
 import type { PostVO } from '@/types/post';
 
@@ -16,14 +16,14 @@ const keyword = ref('');
 const statusFilter = ref<number | null>(null);
 const scopeFilter = ref<string | null>(null);
 
-const statusOptions: any[] = [
-  { label: '全部', value: null },
+type TagType = 'default' | 'success' | 'error' | 'warning' | 'info';
+
+const statusOptions: SelectOption[] = [
   { label: '正常', value: 1 },
   { label: '隐藏', value: 2 },
 ];
 
-const scopeOptions: any[] = [
-  { label: '全部', value: null },
+const scopeOptions: SelectOption[] = [
   { label: '广场', value: 'SQUARE' },
   { label: '空间', value: 'SPACE' },
 ];
@@ -47,7 +47,7 @@ async function loadPosts(reset = false) {
     }
     hasMore.value = list.length >= 20;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }
@@ -99,7 +99,7 @@ const columns: DataTableColumns<PostVO> = [
   {
     title: '状态', key: 'status', width: 70,
     render(row) {
-      const map: Record<number, { label: string; type: any }> = {
+      const map: Record<number, { label: string; type: TagType }> = {
         0: { label: '待审', type: 'default' },
         1: { label: '正常', type: 'success' },
         2: { label: '隐藏', type: 'error' },

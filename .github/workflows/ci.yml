@@ -9,6 +9,28 @@ on:
 jobs:
   backend-test:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: campus_forum
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -17,12 +39,11 @@ jobs:
           java-version: "21"
           distribution: "temurin"
           cache: maven
+      - name: Initialize MySQL schema
+        run: docker exec -i ${{ job.services.mysql.id }} mysql -uroot -proot < db/schema.sql
       - name: Run tests
         working-directory: backend
         run: mvn test
-        env:
-          MYSQL_USER: test
-          MYSQL_PASSWORD: test
 
   frontend-test:
     runs-on: ubuntu-latest

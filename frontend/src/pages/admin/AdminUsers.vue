@@ -3,7 +3,7 @@ import { ref, onMounted, h } from 'vue';
 import {
   NDataTable, NButton, NSelect, NInput, NSpace, NModal, NTag, NPopconfirm, useMessage,
 } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getAdminUsers, banUser, unbanUser, changeUserRole, batchSetUserStatus } from '@/api/admin';
 import type { AdminUserItem } from '@/api/admin';
 
@@ -22,13 +22,12 @@ const roleModalShow = ref(false);
 const roleModalUserId = ref<number | null>(null);
 const selectedRole = ref('USER');
 
-const roleOptions: any[] = [
+const roleOptions: SelectOption[] = [
   { label: '普通用户', value: 'USER' },
   { label: '管理员', value: 'TENANT_ADMIN' },
 ];
 
-const statusOptions: any[] = [
-  { label: '全部', value: null },
+const statusOptions: SelectOption[] = [
   { label: '正常', value: 1 },
   { label: '已封禁', value: 0 },
 ];
@@ -52,7 +51,7 @@ async function loadUsers(reset = false) {
     }
     hasMore.value = list.length >= 20;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }

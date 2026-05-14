@@ -35,7 +35,7 @@ async function loadPosts(reset = false) {
     }
     hasMore.value = list.length >= 10;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }
@@ -116,7 +116,7 @@ onMounted(() => loadPosts(true));
           <NTag v-if="post.isEssence === 1" type="warning" size="small">精华</NTag>
         </div>
         <h3 v-if="post.title" class="post-title">{{ post.title }}</h3>
-        <p class="post-preview" v-html="renderMentions(post.content.slice(0, 200)) + (post.content.length > 200 ? '...' : '')"></p>
+        <p class="post-preview" v-html="renderMentions(post.content.slice(0, 200)) + (post.content.length > 200 ? '...' : '')" />
         <div class="card-footer">
           <NSpace>
             <span>{{ post.viewCount }} 浏览</span>

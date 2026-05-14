@@ -28,6 +28,8 @@ npm run lint
 
 Use Java 17+ conventions for backend code: `PascalCase` classes, `camelCase` methods/fields, and package names grouped by feature. Keep controllers thin and put business rules in services. Frontend files use Vue 3 Composition API and TypeScript; Vue page/component files use `PascalCase.vue`, composables use `useXxx.ts`, and API modules use lower-case domain names such as `posts.ts`. Run Prettier through `npm run format` for frontend formatting.
 
+核心代码和复杂逻辑必须写详细注释，所有代码注释必须使用中文。
+
 ## Testing Guidelines
 
 Backend tests use Spring Boot Test and JUnit under `backend/src/test/java`; name test classes `XxxTest`. Frontend tests use Vitest and should be named `*.test.ts` or `*.spec.ts` near the code under test. Add tests for changed behavior, especially utilities, services, permission checks, and tenant isolation.

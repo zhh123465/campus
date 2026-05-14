@@ -3,7 +3,7 @@ import { ref, onMounted, h } from 'vue';
 import {
   NDataTable, NButton, NSelect, NInput, NSpace, NTag, NPopconfirm, useMessage,
 } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getAdminSpaces, setSpaceStatus, adminDeleteSpace } from '@/api/admin';
 import type { SpaceVO } from '@/types/space';
 
@@ -16,15 +16,13 @@ const keyword = ref('');
 const categoryFilter = ref<string | null>(null);
 const statusFilter = ref<number | null>(null);
 
-const categoryOptions: any[] = [
-  { label: '全部', value: null },
+const categoryOptions: SelectOption[] = [
   { label: '班级', value: 'CLASS' },
   { label: '专业', value: 'MAJOR' },
   { label: '社团', value: 'CLUB' },
 ];
 
-const statusOptions: any[] = [
-  { label: '全部', value: null },
+const statusOptions: SelectOption[] = [
   { label: '正常', value: 1 },
   { label: '已禁用', value: 0 },
 ];
@@ -48,7 +46,7 @@ async function loadSpaces(reset = false) {
     }
     hasMore.value = list.length >= 20;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }

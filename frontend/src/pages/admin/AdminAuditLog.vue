@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
 import { NDataTable, NButton, NSelect, NInput, NSpace } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getAuditLogs } from '@/api/admin';
 import type { AuditLogVO } from '@/types/admin';
 
@@ -12,8 +12,7 @@ const hasMore = ref(true);
 const operatorId = ref<string | null>(null);
 const actionFilter = ref<string | null>(null);
 
-const actionOptions: any[] = [
-  { label: '全部', value: null },
+const actionOptions: SelectOption[] = [
   { label: '用户封禁', value: 'USER_BAN' },
   { label: '用户解禁', value: 'USER_UNBAN' },
   { label: '角色变更', value: 'USER_ROLE_CHANGE' },
@@ -43,7 +42,7 @@ async function loadLogs(reset = false) {
     }
     hasMore.value = list.length >= 20;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }

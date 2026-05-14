@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
 import { NDataTable, NTag, NButton, NInput, NModal, NSpace, NSelect, useMessage } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { request } from '@/api/request';
 
 interface SensitiveWord {
@@ -18,7 +18,7 @@ const addModalShow = ref(false);
 const addWord = ref('');
 const addLevel = ref(1);
 
-const levelOptions: any[] = [
+const levelOptions: SelectOption[] = [
   { label: '低', value: 1 },
   { label: '中', value: 2 },
   { label: '高', value: 3 },
@@ -61,7 +61,7 @@ async function loadWords() {
     const res = await request<SensitiveWord[]>({ method: 'GET', url: '/admin/sensitive-words' });
     words.value = res.data;
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }

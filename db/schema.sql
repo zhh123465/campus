@@ -21,6 +21,7 @@ CREATE TABLE tenants (
   domain       VARCHAR(128) DEFAULT NULL,
   status       TINYINT NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
   ai_config    JSON DEFAULT NULL COMMENT 'AI 配置',
+  announcement VARCHAR(500) DEFAULT NULL COMMENT '租户公告',
   created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_code (code)
@@ -45,6 +46,10 @@ CREATE TABLE users (
   points          BIGINT NOT NULL DEFAULT 0 COMMENT '积分',
   status          TINYINT NOT NULL DEFAULT 1 COMMENT '1正常 0封禁',
   last_login_at   DATETIME DEFAULT NULL,
+  reset_token     VARCHAR(128) DEFAULT NULL COMMENT '密码重置令牌',
+  reset_token_expires DATETIME DEFAULT NULL COMMENT '密码重置令牌过期时间',
+  mute_settings   JSON DEFAULT NULL COMMENT '消息免打扰设置',
+  tag_subscriptions JSON DEFAULT NULL COMMENT '问答标签订阅',
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted         TINYINT NOT NULL DEFAULT 0,
@@ -65,6 +70,8 @@ CREATE TABLE spaces (
   category      VARCHAR(16)  NOT NULL COMMENT 'MAJOR/CLASS/CLUB/INTEREST',
   visibility    VARCHAR(16)  NOT NULL DEFAULT 'PUBLIC' COMMENT 'PUBLIC/REVIEW/INVITE',
   cover_url     VARCHAR(255) DEFAULT NULL,
+  sensitive_words TEXT DEFAULT NULL COMMENT '空间自定义敏感词',
+  post_notice   VARCHAR(500) DEFAULT NULL COMMENT '发帖须知',
   member_count  INT NOT NULL DEFAULT 0,
   post_count    INT NOT NULL DEFAULT 0,
   status        TINYINT NOT NULL DEFAULT 1,
@@ -114,6 +121,7 @@ CREATE TABLE posts (
   is_pinned     TINYINT NOT NULL DEFAULT 0,
   is_essence    TINYINT NOT NULL DEFAULT 0,
   status        TINYINT NOT NULL DEFAULT 1 COMMENT '0待审 1正常 2隐藏',
+  pinned_at     DATETIME DEFAULT NULL COMMENT '置顶时间',
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted       TINYINT NOT NULL DEFAULT 0,
@@ -257,7 +265,23 @@ CREATE TABLE notifications (
 ) ENGINE=InnoDB COMMENT='通知';
 
 -- ============================================================
--- 13. audit_logs 审计日志
+-- 13. messages 私信
+-- ============================================================
+CREATE TABLE messages (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id   BIGINT UNSIGNED NOT NULL,
+  sender_id   BIGINT UNSIGNED NOT NULL,
+  receiver_id BIGINT UNSIGNED NOT NULL,
+  content     TEXT DEFAULT NULL,
+  image_url   VARCHAR(255) DEFAULT NULL,
+  is_read     TINYINT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_conversation (sender_id, receiver_id, created_at),
+  KEY idx_receiver_read (receiver_id, is_read, created_at)
+) ENGINE=InnoDB COMMENT='私信';
+
+-- ============================================================
+-- 14. audit_logs 审计日志
 -- ============================================================
 CREATE TABLE audit_logs (
   id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -274,7 +298,7 @@ CREATE TABLE audit_logs (
 ) ENGINE=InnoDB COMMENT='审计日志';
 
 -- ============================================================
--- 14. reports 举报
+-- 15. reports 举报
 -- ============================================================
 CREATE TABLE reports (
   id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -293,7 +317,7 @@ CREATE TABLE reports (
 ) ENGINE=InnoDB COMMENT='举报';
 
 -- ============================================================
--- 15. sensitive_words 敏感词
+-- 16. sensitive_words 敏感词
 -- ============================================================
 CREATE TABLE sensitive_words (
   id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -305,7 +329,7 @@ CREATE TABLE sensitive_words (
 ) ENGINE=InnoDB COMMENT='敏感词';
 
 -- ============================================================
--- 16. achievements 成就
+-- 17. achievements 成就
 -- ============================================================
 CREATE TABLE achievements (
   id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -328,7 +352,7 @@ CREATE TABLE user_achievements (
 ) ENGINE=InnoDB COMMENT='用户成就';
 
 -- ============================================================
--- 17. points_log 积分流水
+-- 18. points_log 积分流水
 -- ============================================================
 CREATE TABLE points_logs (
   id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -342,7 +366,7 @@ CREATE TABLE points_logs (
 ) ENGINE=InnoDB COMMENT='积分流水';
 
 -- ============================================================
--- 18. follows 用户关注
+-- 19. follows 用户关注
 -- ============================================================
 CREATE TABLE follows (
   id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

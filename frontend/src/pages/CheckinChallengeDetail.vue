@@ -49,8 +49,8 @@ async function handleCheckin() {
     message.success('打卡成功');
     checkinContent.value = '';
     load();
-  } catch (e: any) {
-    message.error(e.message || '打卡失败');
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '打卡失败');
   }
   submitting.value = false;
 }

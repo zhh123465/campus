@@ -25,7 +25,7 @@ const replyTo = ref<{ id: number; nickname: string } | null>(null);
 const submitting = ref(false);
 const acceptingId = ref<number | null>(null);
 
-// Report state
+// 举报弹窗状态
 const reportModalShow = ref(false);
 const reportTargetId = ref<number>(0);
 const reportTargetType = ref('POST');
@@ -92,8 +92,8 @@ async function handleAccept(commentId: number) {
   try {
     qa.value = await acceptAnswer(post.value.id, commentId);
     message.success('已采纳该回答');
-  } catch (e: any) {
-    message.error(e.message || '采纳失败');
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '采纳失败');
   }
   acceptingId.value = null;
 }
@@ -223,13 +223,13 @@ onMounted(loadPost);
         </div>
 
         <h2 v-if="post.title" class="post-title">{{ post.title }}</h2>
-        <p class="post-body" v-html="renderMentions(post.content)"></p>
+        <p class="post-body" v-html="renderMentions(post.content)" />
 
         <NSpace v-if="post.topics && post.topics.length" class="topics">
           <NTag v-for="t in post.topics" :key="t" size="small">{{ t }}</NTag>
         </NSpace>
 
-        <!-- QA 信息 -->
+        <!-- 问答信息 -->
         <div v-if="isQaPost() && qa" class="qa-info">
           <NTag type="warning" size="small">悬赏 {{ qa.bountyPoints }} 积分</NTag>
           <NTag v-if="qa.isSolved" type="success" size="small">已解决</NTag>
@@ -285,7 +285,7 @@ onMounted(loadPost);
               <span class="comment-author">{{ c.author?.nickname || '匿名' }}</span>
               <span class="comment-time">{{ new Date(c.createdAt).toLocaleDateString() }}</span>
             </div>
-            <p class="comment-text" v-html="renderMentions(c.content)"></p>
+            <p class="comment-text" v-html="renderMentions(c.content)" />
             <div class="comment-actions">
               <NButton size="tiny" text @click="handleCommentLike(c)">
                 👍 {{ c.likeCount || 0 }}
@@ -318,7 +318,7 @@ onMounted(loadPost);
             <div v-if="c.replies && c.replies.length" class="replies">
               <div v-for="r in c.replies" :key="r.id" class="reply-item">
                 <span class="reply-author">{{ r.author?.nickname || '匿名' }}</span>
-                <span class="reply-text" v-html="renderMentions(r.content)"></span>
+                <span class="reply-text" v-html="renderMentions(r.content)" />
                 <span class="reply-time">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
               </div>
             </div>
@@ -331,7 +331,7 @@ onMounted(loadPost);
       </NCard>
     </template>
 
-    <!-- Report Modal -->
+    <!-- 举报弹窗 -->
     <NModal v-model:show="reportModalShow" title="举报">
       <div style="padding: 16px; width: 400px;">
         <NSelect

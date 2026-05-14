@@ -14,6 +14,11 @@ const newPassword = ref('');
 const confirmPassword = ref('');
 const loading = ref(false);
 
+function getErrorMessage(error: unknown): string {
+  const err = error as { response?: { data?: { message?: string } } };
+  return err.response?.data?.message || '重置失败';
+}
+
 async function handleSendCode() {
   if (!email.value) {
     message.warning('请输入邮箱');
@@ -50,8 +55,8 @@ async function handleReset() {
     await resetPassword(email.value, token.value, newPassword.value);
     message.success('密码重置成功，请重新登录');
     router.push('/login');
-  } catch (e: any) {
-    message.error(e?.response?.data?.message || '重置失败');
+  } catch (e) {
+    message.error(getErrorMessage(e));
   } finally {
     loading.value = false;
   }

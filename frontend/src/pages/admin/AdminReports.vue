@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
 import { NDataTable, NTag, NSelect, NButton, NSpace, NModal, NInput, useMessage } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getReports, handleReport, batchHandleReports } from '@/api/report';
 import type { ReportVO } from '@/types/report';
 
@@ -12,16 +12,14 @@ const loading = ref(false);
 const typeFilter = ref<string | null>(null);
 const statusFilter = ref<number | null>(null);
 
-const typeOptions: any[] = [
-  { label: '全部类型', value: null },
+const typeOptions: SelectOption[] = [
   { label: '帖子', value: 'POST' },
   { label: '评论', value: 'COMMENT' },
   { label: '资源', value: 'RESOURCE' },
   { label: '用户', value: 'USER' },
 ];
 
-const statusOptions: any[] = [
-  { label: '全部状态', value: null },
+const statusOptions: SelectOption[] = [
   { label: '待处理', value: 0 },
   { label: '已处理', value: 1 },
   { label: '已驳回', value: 2 },
@@ -130,7 +128,7 @@ async function loadReports(reset = false) {
     if (reset) reports.value = list;
     else reports.value.push(...list);
   } catch {
-    // ignore
+    // 忽略加载失败，保留当前列表状态
   }
   loading.value = false;
 }
