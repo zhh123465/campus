@@ -176,6 +176,12 @@ onMounted(load);
               <span class="record-date">{{ r.checkinDate }}</span>
             </div>
             <p v-if="r.content" class="record-content">{{ r.content }}</p>
+            <NTag v-if="r.aiCheck === 0" type="warning" size="tiny" style="margin-top: 4px">
+              AI 提醒：内容可能不符合挑战主题
+            </NTag>
+            <NTag v-else-if="r.aiCheck === 1" type="success" size="tiny" style="margin-top: 4px">
+              AI 检测：内容符合主题
+            </NTag>
             <NButton
               v-if="r.userId === currentUserId"
               size="tiny"

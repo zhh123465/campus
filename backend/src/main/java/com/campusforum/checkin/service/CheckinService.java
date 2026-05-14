@@ -10,6 +10,7 @@ import com.campusforum.checkin.mapper.CheckinRecordMapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
 import com.campusforum.achievement.service.AchievementService;
+import com.campusforum.ai.service.AiService;
 import com.campusforum.points.service.PointsService;
 import com.campusforum.post.domain.Post;
 import com.campusforum.post.mapper.PostMapper;
@@ -40,6 +41,7 @@ public class CheckinService {
     private final AchievementService achievementService;
     private final PostMapper postMapper;
     private final ObjectMapper objectMapper;
+    private final AiService aiService;
 
     @Transactional
     public CheckinChallengeVO create(Long userId, CreateCheckinChallengeRequest req) {
@@ -163,7 +165,14 @@ public class CheckinService {
                 record.setImageUrls("[]");
             }
         }
-        record.setAiCheck(0);
+        // AI 检测打卡内容是否符合挑战主题
+        String theme = challenge.getName();
+        if (challenge.getDescription() != null && !challenge.getDescription().isBlank()) {
+            theme += " " + challenge.getDescription();
+        }
+        boolean relevant = aiService.checkRelevance(theme,
+                req.getContent() != null ? req.getContent() : "");
+        record.setAiCheck(relevant ? 1 : 0);
 
         recordMapper.insert(record);
 
@@ -369,6 +378,7 @@ public class CheckinService {
                 .checkinDate(r.getCheckinDate())
                 .content(r.getContent())
                 .imageUrls(urls)
+                .aiCheck(r.getAiCheck())
                 .createdAt(r.getCreatedAt())
                 .build();
     }

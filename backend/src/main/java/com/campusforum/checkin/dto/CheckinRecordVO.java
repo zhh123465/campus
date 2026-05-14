@@ -18,5 +18,6 @@ public class CheckinRecordVO {
     private LocalDate checkinDate;
     private String content;
     private List<String> imageUrls;
+    private Integer aiCheck;
     private LocalDateTime createdAt;
 }

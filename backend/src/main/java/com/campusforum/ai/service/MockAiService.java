@@ -88,4 +88,22 @@ public class MockAiService implements AiService {
         }
         return "这是 CampusForum AI 助手的默认回复。你可以问我关于平台使用的任何问题，比如如何发帖、搜索内容、管理空间等。";
     }
+
+    @Override
+    public boolean checkRelevance(String theme, String content) {
+        if (theme == null || theme.isBlank() || content == null || content.isBlank()) return true;
+        String themeLower = theme.toLowerCase();
+        String contentLower = content.toLowerCase();
+        // 从主题提取关键词（2+ 字的中文词或 3+ 字母的英文词）
+        List<String> keywords = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[\\u4e00-\\u9fa5]{2,}|[a-zA-Z]{3,}")
+                .matcher(themeLower);
+        while (m.find()) keywords.add(m.group());
+        if (keywords.isEmpty()) return true;
+        // 至少有一个关键词出现在内容中
+        for (String kw : keywords) {
+            if (contentLower.contains(kw)) return true;
+        }
+        return false;
+    }
 }

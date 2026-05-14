@@ -30,6 +30,7 @@ export interface CheckinRecordVO {
   checkinDate: string;
   content: string;
   imageUrls: string[];
+  aiCheck?: number;
   createdAt: string;
 }
 
