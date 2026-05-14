@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
 import com.campusforum.achievement.service.AchievementService;
+import com.campusforum.follow.service.FollowService;
 import com.campusforum.notify.service.NotifyService;
 import com.campusforum.points.service.PointsService;
 import com.campusforum.post.domain.Post;
@@ -47,6 +48,7 @@ public class PostService {
     private final PointsService pointsService;
     private final AchievementService achievementService;
     private final MeiliSearchClient meiliSearchClient;
+    private final FollowService followService;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -122,6 +124,27 @@ public class PostService {
     public List<PostVO> page(PostPageRequest req) {
         cleanExpiredPins();
         int limit = Math.min(req.getLimit(), 50);
+        Long currentUserId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+
+        // "follow" sort: only posts from followed users
+        if ("follow".equals(req.getSort())) {
+            if (currentUserId == null) return List.of();
+            List<Long> followingIds = followService.getFollowingIds(currentUserId);
+            if (followingIds.isEmpty()) return List.of();
+
+            LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
+            qw.eq(Post::getScope, req.getScope());
+            qw.eq(Post::getStatus, 1);
+            qw.in(Post::getAuthorId, followingIds);
+            if (req.getCursor() != null) {
+                qw.lt(Post::getId, req.getCursor());
+            }
+            qw.orderByDesc(Post::getId);
+            qw.last("LIMIT " + limit);
+            List<Post> posts = postMapper.selectList(qw);
+            return posts.stream().map(p -> toVO(p, currentUserId)).toList();
+        }
+
         LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
         qw.eq(Post::getScope, req.getScope());
         qw.eq(Post::getStatus, 1);
@@ -135,7 +158,6 @@ public class PostService {
                 qw.lt(Post::getId, req.getCursor());
                 qw.orderByDesc(Post::getId);
             } else {
-                // latest
                 qw.lt(Post::getId, req.getCursor());
                 qw.orderByDesc(Post::getId);
             }
@@ -153,7 +175,6 @@ public class PostService {
         qw.last("LIMIT " + limit);
         List<Post> posts = postMapper.selectList(qw);
 
-        Long currentUserId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
         return posts.stream().map(p -> toVO(p, currentUserId)).toList();
     }
 

@@ -9,10 +9,11 @@ const router = useRouter();
 const posts = ref<PostVO[]>([]);
 const loading = ref(false);
 const hasMore = ref(true);
-const sort = ref<'latest' | 'trending' | 'essence'>('latest');
+const sort = ref<'latest' | 'trending' | 'essence' | 'follow'>('latest');
 
 const sortOptions = [
   { key: 'latest', label: '最新' },
+  { key: 'follow', label: '关注' },
   { key: 'trending', label: '最热' },
   { key: 'essence', label: '精华' },
 ] as const;
@@ -38,7 +39,7 @@ async function loadPosts(reset = false) {
   loading.value = false;
 }
 
-function switchSort(s: 'latest' | 'trending' | 'essence') {
+function switchSort(s: 'latest' | 'trending' | 'essence' | 'follow') {
   sort.value = s;
   posts.value = [];
   loadPosts(true);

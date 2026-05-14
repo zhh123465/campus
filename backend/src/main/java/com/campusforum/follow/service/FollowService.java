@@ -94,6 +94,13 @@ public class FollowService {
         return followMapper.selectCount(qw);
     }
 
+    public List<Long> getFollowingIds(Long userId) {
+        LambdaQueryWrapper<Follow> qw = new LambdaQueryWrapper<>();
+        qw.eq(Follow::getFollowerId, userId);
+        qw.select(Follow::getFolloweeId);
+        return followMapper.selectList(qw).stream().map(Follow::getFolloweeId).toList();
+    }
+
     public long getFollowingCount(Long userId) {
         LambdaQueryWrapper<Follow> qw = new LambdaQueryWrapper<>();
         qw.eq(Follow::getFollowerId, userId);
