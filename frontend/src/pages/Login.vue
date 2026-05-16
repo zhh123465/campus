@@ -171,7 +171,7 @@ async function handleLogin() {
     authStore.setToken(res.token);
     authStore.setUser(res.user);
     message.success('登录成功');
-    router.push('/');
+    router.push('/square');
   } catch {
     message.error('登录失败，请检查邮箱和密码');
   } finally {

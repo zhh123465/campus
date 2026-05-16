@@ -215,7 +215,9 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth && !token) {
     next('/login');
   } else if (to.meta.guest && token) {
-    next('/');
+    next('/square');
+  } else if (to.path === '/' && token) {
+    next('/square');
   } else if (to.meta.requiresAdmin && role !== 'TENANT_ADMIN' && role !== 'SUPER_ADMIN') {
     next('/');
   } else {

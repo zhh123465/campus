@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NInput, NCard, NTag, NSpace, NSpin, NEmpty, useMessage } from 'naive-ui'
+import { NButton, NInput, NTag, NSpin, NEmpty, useMessage, NIcon } from 'naive-ui'
+import { 
+  ChatbubblesOutline, 
+  ArrowBackOutline, 
+  SendOutline,
+  ImageOutline
+} from '@vicons/ionicons5'
 import { listConversations, getConversation, sendMessage, markRead } from '@/api/messages'
 import { useAuthStore } from '@/stores/auth'
 import type { MessageVO } from '@/types/message'
@@ -82,7 +88,6 @@ function peerName(msg: MessageVO): string {
   return msg.sender?.nickname || '用户'
 }
 
-// Poll for new messages every 5 seconds
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
@@ -105,146 +110,495 @@ watch(() => route.query.peer, (val) => {
 </script>
 
 <template>
-  <div class="messages-page">
+  <div class="messages-layout">
     <!-- 对话列表 -->
     <template v-if="!activePeerId">
-      <NCard title="私信" class="conv-card">
-        <template v-if="loading">
-          <NSpin />
-        </template>
-        <template v-else-if="conversations.length === 0">
-          <NEmpty description="暂无私信" />
-        </template>
-        <template v-else>
-          <div
-            v-for="msg in conversations"
-            :key="msg.id"
-            class="conv-item"
-            @click="openChat(peerIdFromMsg(msg))"
-          >
-            <div class="conv-avatar">{{ peerName(msg).charAt(0) }}</div>
-            <div class="conv-body">
-              <div class="conv-header">
-                <span class="conv-name">{{ peerName(msg) }}</span>
-                <span class="conv-time">{{ new Date(msg.createdAt).toLocaleDateString() }}</span>
-              </div>
-              <p class="conv-preview">{{ msg.content || '[图片]' }}</p>
-            </div>
-            <NTag v-if="!msg.isRead && msg.senderId !== currentUserId" type="error" size="tiny">新</NTag>
+      <div class="header-banner">
+        <button class="action-btn back-btn" @click="router.back()" title="返回">
+          <n-icon><ArrowBackOutline /></n-icon>
+        </button>
+        <h1 class="page-title gradient-text">
+          <n-icon size="32" class="title-icon"><ChatbubblesOutline /></n-icon>
+          消息中心
+        </h1>
+      </div>
+
+      <div class="main-container">
+        <div class="glass-card list-card">
+          <div v-if="loading" class="loading-state">
+            <n-spin size="large" />
           </div>
-        </template>
-      </NCard>
+          <div v-else-if="conversations.length === 0" class="empty-state">
+            <n-icon size="64" color="#30363d"><ChatbubblesOutline /></n-icon>
+            <h3>暂无消息</h3>
+            <p>去广场找人聊聊吧</p>
+          </div>
+          <div v-else class="conv-list">
+            <div
+              v-for="msg in conversations"
+              :key="msg.id"
+              class="conv-item"
+              @click="openChat(peerIdFromMsg(msg))"
+            >
+              <div class="conv-avatar">
+                {{ peerName(msg).charAt(0) }}
+              </div>
+              <div class="conv-body">
+                <div class="conv-header">
+                  <span class="conv-name">{{ peerName(msg) }}</span>
+                  <span class="conv-time">{{ new Date(msg.createdAt).toLocaleDateString() }}</span>
+                </div>
+                <div class="conv-footer">
+                  <p class="conv-preview">{{ msg.content || '[图片]' }}</p>
+                  <n-tag v-if="!msg.isRead && msg.senderId !== currentUserId" type="error" size="small" round class="unread-tag">新</n-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- 聊天窗口 -->
     <template v-else>
-      <NCard class="chat-card">
-        <template #header>
-          <div class="chat-header-bar">
-            <NButton size="small" text @click="backToList">← 返回</NButton>
-            <span class="chat-peer-name">{{ activePeerName }}</span>
+      <div class="chat-container">
+        <div class="chat-header glass-card">
+          <button class="action-btn back-btn" @click="backToList">
+            <n-icon><ArrowBackOutline /></n-icon>
+          </button>
+          <div class="chat-peer-info">
+            <div class="peer-avatar">{{ activePeerName.charAt(0) }}</div>
+            <span class="peer-name">{{ activePeerName }}</span>
           </div>
-        </template>
+        </div>
 
-        <div ref="chatContainer" class="chat-messages">
-          <template v-if="chatLoading">
-            <NSpin />
-          </template>
-          <template v-else-if="chatMessages.length === 0">
-            <NEmpty description="暂无消息，发送一条吧" />
-          </template>
-          <template v-else>
+        <div class="chat-messages" ref="chatContainer">
+          <div v-if="chatLoading" class="loading-state">
+            <n-spin size="large" />
+          </div>
+          <div v-else-if="chatMessages.length === 0" class="empty-state">
+            <n-icon size="64" color="#30363d"><ChatbubblesOutline /></n-icon>
+            <p>暂无消息，发送一条吧</p>
+          </div>
+          <div v-else class="message-list">
             <div
               v-for="m in chatMessages"
               :key="m.id"
-              class="chat-bubble"
+              class="chat-bubble-wrapper"
               :class="{ mine: m.senderId === currentUserId }"
             >
-              <div class="bubble-avatar">{{ m.sender?.nickname?.charAt(0) || '?' }}</div>
+              <div class="bubble-avatar" v-if="m.senderId !== currentUserId">
+                {{ m.sender?.nickname?.charAt(0) || '?' }}
+              </div>
               <div class="bubble-content">
-                <p v-if="m.content" class="bubble-text">{{ m.content }}</p>
-                <img
-                  v-if="m.imageUrl"
-                  :src="m.imageUrl"
-                  class="bubble-image"
-                  style="max-width: 200px; border-radius: 8px;"
-                />
-                <span class="bubble-time">{{ new Date(m.createdAt).toLocaleTimeString() }}</span>
+                <div class="bubble-box">
+                  <p v-if="m.content" class="bubble-text">{{ m.content }}</p>
+                  <img
+                    v-if="m.imageUrl"
+                    :src="m.imageUrl"
+                    class="bubble-image"
+                  />
+                </div>
+                <span class="bubble-time">{{ new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+              </div>
+              <div class="bubble-avatar mine" v-if="m.senderId === currentUserId">
+                我
               </div>
             </div>
-          </template>
+          </div>
         </div>
 
-        <div class="chat-input-area">
-          <NInput
+        <div class="chat-input-area glass-card">
+          <div class="input-actions">
+            <!-- 预留图片上传按钮 -->
+            <button class="icon-btn"><n-icon size="22"><ImageOutline /></n-icon></button>
+          </div>
+          <n-input
             v-model:value="textInput"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 4 }"
             placeholder="输入消息..."
-            @keydown.enter="handleSend"
+            class="custom-input"
+            @keydown.enter.prevent="handleSend"
           />
-          <NButton type="primary" size="small" :loading="sending" @click="handleSend">发送</NButton>
+          <button class="neon-btn send-btn" :disabled="sending || !textInput.trim()" @click="handleSend">
+            <n-icon size="18" v-if="!sending"><SendOutline /></n-icon>
+            <n-spin size="small" v-else stroke="white" />
+          </button>
         </div>
-      </NCard>
+      </div>
     </template>
   </div>
 </template>
 
-<style scoped>
-.messages-page {
-  max-width: 680px;
-  margin: 24px auto;
-  padding: 0 16px;
+<style scoped lang="scss">
+.messages-layout {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--cf-bg-base);
+  background-image: radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.08), transparent 40%);
+  display: flex;
+  flex-direction: column;
 }
-.conv-item {
+
+/* Common Header */
+.header-banner {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 24px 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 8px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
+  gap: 16px;
+
+  .page-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 }
-.conv-item:hover { background: #f9f9f9; }
-.conv-avatar {
+
+.action-btn {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #18a058;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--cf-border);
+  color: var(--cf-text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-.conv-body { flex: 1; min-width: 0; }
-.conv-header { display: flex; justify-content: space-between; margin-bottom: 2px; }
-.conv-name { font-weight: 600; font-size: 14px; }
-.conv-time { font-size: 12px; color: #999; }
-.conv-preview { margin: 0; font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.3s;
 
-.chat-card { display: flex; flex-direction: column; height: calc(100vh - 120px); }
-.chat-card :deep(.n-card__content) { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.chat-header-bar { display: flex; align-items: center; gap: 12px; }
-.chat-peer-name { font-weight: 600; }
-
-.chat-messages { flex: 1; overflow-y: auto; padding: 8px 0; }
-.chat-bubble { display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-start; }
-.chat-bubble.mine { flex-direction: row-reverse; }
-.chat-bubble.mine .bubble-content { align-items: flex-end; }
-.bubble-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: #18a058; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; flex-shrink: 0;
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+  }
 }
-.chat-bubble.mine .bubble-avatar { background: #2080f0; }
-.bubble-content { display: flex; flex-direction: column; max-width: 70%; }
-.bubble-text {
-  margin: 0; padding: 8px 12px; border-radius: 12px; background: #f0f0f0;
-  font-size: 14px; line-height: 1.5; word-break: break-word;
-}
-.chat-bubble.mine .bubble-text { background: #18a058; color: #fff; }
-.bubble-time { font-size: 11px; color: #bbb; margin-top: 2px; }
 
-.chat-input-area { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid #f0f0f0; align-items: center; }
-.chat-input-area :deep(.n-input) { flex: 1; }
+/* List View */
+.main-container {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.list-card {
+  padding: 12px 0;
+  min-height: 400px;
+}
+
+.conv-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: background 0.3s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .conv-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  .conv-body {
+    flex: 1;
+    min-width: 0;
+    
+    .conv-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+
+      .conv-name {
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--cf-text-primary);
+      }
+      .conv-time {
+        font-size: 12px;
+        color: var(--cf-text-secondary);
+      }
+    }
+
+    .conv-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .conv-preview {
+        margin: 0;
+        font-size: 14px;
+        color: var(--cf-text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .unread-tag {
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+/* Chat View */
+.chat-container {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  padding: 24px;
+  gap: 16px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-radius: 16px;
+
+  .chat-peer-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    .peer-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    
+    .peer-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--cf-text-primary);
+    }
+  }
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  
+  /* hide scrollbar for cleaner look */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chat-bubble-wrapper {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  
+  &.mine {
+    justify-content: flex-end;
+  }
+
+  .bubble-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    flex-shrink: 0;
+    
+    &.mine {
+      background: var(--cf-gradient-primary);
+    }
+  }
+
+  .bubble-content {
+    display: flex;
+    flex-direction: column;
+    max-width: 70%;
+    
+    .bubble-box {
+      padding: 12px 16px;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--cf-border);
+      
+      .bubble-text {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--cf-text-primary);
+        word-break: break-word;
+      }
+      
+      .bubble-image {
+        max-width: 100%;
+        border-radius: 8px;
+        margin-top: 8px;
+      }
+    }
+    
+    .bubble-time {
+      font-size: 12px;
+      color: var(--cf-text-secondary);
+      margin-top: 6px;
+      margin-left: 4px;
+    }
+  }
+  
+  &.mine .bubble-content {
+    align-items: flex-end;
+    
+    .bubble-box {
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 4px;
+      background: var(--cf-gradient-primary);
+      border: none;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+      
+      .bubble-text {
+        color: white;
+      }
+    }
+    
+    .bubble-time {
+      margin-left: 0;
+      margin-right: 4px;
+    }
+  }
+}
+
+.chat-input-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  
+  .input-actions {
+    display: flex;
+    padding-bottom: 4px;
+    
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--cf-text-secondary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 8px;
+      transition: all 0.3s;
+      
+      &:hover {
+        color: var(--cf-text-primary);
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+
+  .custom-input {
+    flex: 1;
+    background: transparent;
+    --n-border: none !important;
+    --n-border-hover: none !important;
+    --n-border-focus: none !important;
+    --n-box-shadow-focus: none !important;
+    --n-color: transparent !important;
+    --n-color-focus: transparent !important;
+    
+    :deep(.n-input__textarea-el) {
+      font-size: 15px;
+      line-height: 1.5;
+    }
+  }
+
+  .send-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--cf-text-secondary);
+  padding: 60px 0;
+  
+  h3 {
+    margin: 16px 0 8px;
+    color: var(--cf-text-primary);
+    font-size: 18px;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
 </style>

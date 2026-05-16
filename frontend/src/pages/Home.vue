@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import { 
   SearchOutline, 
   SchoolOutline, 
@@ -12,6 +13,7 @@ import {
 import campusHeroImg from '@/assets/images/campus_hero_3d.png';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const navLinks = [
   { name: '首页', path: '/', active: true },
@@ -61,8 +63,14 @@ const hotSpaces = [
             <n-icon><SearchOutline /></n-icon>
           </template>
         </n-input>
-        <n-button text class="login-btn" @click="router.push('/login')">登录</n-button>
-        <button class="neon-btn register-btn" @click="router.push('/register')">注册</button>
+        <template v-if="authStore.isLoggedIn">
+          <n-button text class="login-btn" @click="router.push('/square')">进入社区</n-button>
+          <button class="neon-btn register-btn" @click="router.push('/profile')">个人中心</button>
+        </template>
+        <template v-else>
+          <n-button text class="login-btn" @click="router.push('/login')">登录</n-button>
+          <button class="neon-btn register-btn" @click="router.push('/register')">注册</button>
+        </template>
       </div>
     </nav>
 
@@ -76,7 +84,8 @@ const hotSpaces = [
           专为高校打造的学习社群平台，支撑多学习空间、打卡系统、积分成就、AI 助手等丰富功能，助力学习与成长。
         </p>
         <div class="hero-actions">
-          <button class="neon-btn large" @click="router.push('/register')">立即加入</button>
+          <button v-if="authStore.isLoggedIn" class="neon-btn large" @click="router.push('/square')">进入社区</button>
+          <button v-else class="neon-btn large" @click="router.push('/register')">立即加入</button>
           <button class="outline-btn large">了解更多</button>
         </div>
       </div>
