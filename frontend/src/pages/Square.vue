@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NTag, NSpin, NIcon } from 'naive-ui';
+import { NEmpty, NIcon, NSpin, NTag } from 'naive-ui';
 import {
-  ChatbubblesOutline,
-  PlanetOutline,
   AddOutline,
-  SettingsOutline,
-  FlameOutline,
-  TimeOutline,
   BookmarkOutline,
-  RibbonOutline,
+  ChatbubblesOutline,
   EyeOutline,
-  HeartOutline
+  FlameOutline,
+  RibbonOutline,
+  SettingsOutline,
+  TimeOutline,
 } from '@vicons/ionicons5';
 import { getPosts } from '@/api/posts';
 import MentionText from '@/components/MentionText.vue';
@@ -31,6 +29,11 @@ const sortOptions = [
   { key: 'follow', label: '我的关注', icon: BookmarkOutline },
 ] as const;
 
+const isAdmin = computed(() => {
+  const role = localStorage.getItem('role');
+  return role === 'TENANT_ADMIN' || role === 'SUPER_ADMIN';
+});
+
 async function loadPosts(reset = false) {
   if (loading.value) return;
   loading.value = true;
@@ -43,36 +46,34 @@ async function loadPosts(reset = false) {
       cursorId: reset ? undefined : lastPost?.id,
       limit: 10,
     });
+
     if (reset) {
       posts.value = list;
     } else {
       posts.value.push(...list);
     }
-    if (sort.value === 'essence') {
-      hasMore.value = false;
-    } else {
-      hasMore.value = list.length >= 10;
-    }
+
+    hasMore.value = sort.value === 'essence' ? false : list.length >= 10;
   } catch {
-    // 忽略加载失败，保留当前列表状态
+    if (reset) {
+      posts.value = [];
+    }
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
 }
 
-function switchSort(s: 'latest' | 'trending' | 'essence' | 'follow') {
-  sort.value = s;
+function switchSort(value: 'latest' | 'trending' | 'essence' | 'follow') {
+  if (sort.value === value) return;
+  sort.value = value;
   posts.value = [];
+  hasMore.value = true;
   loadPosts(true);
 }
 
 function goDetail(id: number) {
   router.push(`/posts/${id}`);
 }
-
-const isAdmin = computed(() => {
-  const role = localStorage.getItem('role');
-  return role === 'TENANT_ADMIN' || role === 'SUPER_ADMIN';
-});
 
 function goCreate() {
   router.push('/posts/new');
@@ -83,12 +84,19 @@ function goAdmin() {
 }
 
 function postPreview(content: string) {
-  return content.length > 200 ? `${content.slice(0, 200)}...` : content;
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '刚刚';
+  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function scrollToListEnd(e: Event) {
   const target = e.target as HTMLElement;
-  if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
+  if (target.scrollHeight - target.scrollTop - target.clientHeight < 160) {
     loadPosts();
   }
 }
@@ -98,462 +106,424 @@ onMounted(() => loadPosts(true));
 
 <template>
   <div
-    class="square-layout"
+    class="square-page"
     @scroll="scrollToListEnd"
   >
-    <div class="header-banner">
-      <div class="banner-content">
-        <h1 class="page-title gradient-text">
-          <n-icon
-            size="32"
-            class="title-icon"
-          >
-            <PlanetOutline />
-          </n-icon>
-          广场
-        </h1>
-        <p class="page-subtitle">
-          探索校园热点，分享你的想法
+    <section class="hero-card cf-surface">
+      <div>
+        <span class="cf-pill">Campus Square</span>
+        <h2 class="cf-section-title">
+          探索真实校园热度
+        </h2>
+        <p class="cf-section-subtitle">
+          参考 Stitch 广场页的清爽信息流布局，保留当前接口与滚动加载逻辑，用更轻的卡片层次重塑浏览体验。
         </p>
       </div>
-      <div class="header-actions">
+      <div class="hero-actions">
         <button
-          v-if="isAdmin"
-          class="action-btn admin-btn"
-          title="管理后台"
-          @click="goAdmin"
-        >
-          <n-icon><SettingsOutline /></n-icon>
-        </button>
-        <button
-          class="neon-btn create-btn"
+          class="cf-primary-btn"
           @click="goCreate"
         >
-          <n-icon><AddOutline /></n-icon> 发布
+          <n-icon size="18">
+            <AddOutline />
+          </n-icon>
+          发布帖子
+        </button>
+        <button
+          v-if="isAdmin"
+          class="cf-secondary-btn"
+          @click="goAdmin"
+        >
+          <n-icon size="18">
+            <SettingsOutline />
+          </n-icon>
+          管理后台
         </button>
       </div>
-    </div>
+    </section>
 
-    <div class="main-container">
-      <div class="content-wrapper">
-        <div class="sort-bar glass-card">
-          <div 
-            v-for="opt in sortOptions" 
-            :key="opt.key"
-            class="sort-item"
-            :class="{ active: sort === opt.key }"
-            @click="switchSort(opt.key)"
-          >
-            <n-icon size="18">
-              <component :is="opt.icon" />
-            </n-icon>
-            <span>{{ opt.label }}</span>
-          </div>
-        </div>
+    <section class="toolbar-row">
+      <div class="sort-bar cf-surface">
+        <button
+          v-for="item in sortOptions"
+          :key="item.key"
+          class="sort-chip"
+          :class="{ active: sort === item.key }"
+          @click="switchSort(item.key)"
+        >
+          <n-icon size="16">
+            <component :is="item.icon" />
+          </n-icon>
+          <span>{{ item.label }}</span>
+        </button>
+      </div>
+    </section>
 
+    <section class="feed-grid">
+      <div class="feed-column">
         <div
           v-if="posts.length === 0 && !loading"
-          class="empty-state glass-card"
+          class="empty-wrap cf-surface"
         >
-          <n-icon
-            size="64"
-            color="rgba(255,255,255,0.1)"
-          >
-            <PlanetOutline v-if="sort === 'latest'" />
-            <FlameOutline v-else-if="sort === 'trending'" />
-            <RibbonOutline v-else-if="sort === 'essence'" />
-            <BookmarkOutline v-else />
-          </n-icon>
-          <h3>
-            {{ sort === 'latest' ? '暂无帖子' : sort === 'trending' ? '暂无热门讨论' : sort === 'essence' ? '暂无精华推荐' : '暂无关注动态' }}
-          </h3>
-          <p class="empty-desc">
-            {{ sort === 'latest' ? '快去抢沙发吧' : sort === 'trending' ? '成为第一个引发热议的人' : sort === 'essence' ? '多发好贴，下一个精华就是你' : '去关注一些有趣的人吧' }}
-          </p>
-          <button
-            class="neon-btn mt-4"
-            @click="goCreate"
-          >
-            立即发帖
-          </button>
+          <n-empty description="当前分类下还没有内容">
+            <template #icon>
+              <n-icon size="44">
+                <ChatbubblesOutline />
+              </n-icon>
+            </template>
+            <template #extra>
+              <button
+                class="cf-primary-btn"
+                @click="goCreate"
+              >
+                立即发帖
+              </button>
+            </template>
+          </n-empty>
         </div>
 
-        <div class="post-list">
-          <div
-            v-for="post in posts"
-            :key="post.id"
-            class="post-card glass-card"
-            @click="goDetail(post.id)"
-          >
-            <div class="card-header">
-              <div class="author-info">
-                <div
-                  class="avatar"
-                  :style="{ background: 'var(--cf-gradient-primary)' }"
-                >
-                  {{ post.author?.nickname?.charAt(0) || '匿' }}
+        <article
+          v-for="post in posts"
+          :key="post.id"
+          class="post-card cf-card"
+          @click="goDetail(post.id)"
+        >
+          <div class="post-header">
+            <div class="author-row">
+              <div class="avatar-badge">
+                {{ post.author?.nickname?.charAt(0)?.toUpperCase() || '匿' }}
+              </div>
+              <div>
+                <div class="author-name">
+                  {{ post.author?.nickname || '匿名用户' }}
                 </div>
                 <div class="author-meta">
-                  <span class="author-name">{{ post.author?.nickname || '匿名用户' }}</span>
-                  <span class="post-time">{{ new Date(post.createdAt).toLocaleString() }}</span>
+                  {{ formatTime(post.createdAt) }}
                 </div>
               </div>
-              <n-tag
-                v-if="post.isEssence === 1"
-                type="warning"
-                size="small"
-                round
-                class="essence-tag"
-              >
-                <template #icon>
-                  <n-icon><RibbonOutline /></n-icon>
-                </template>精华
-              </n-tag>
             </div>
-            
-            <h3
-              v-if="post.title"
-              class="post-title"
+            <n-tag
+              v-if="post.isEssence === 1"
+              round
+              type="warning"
+              size="small"
             >
-              {{ post.title }}
-            </h3>
-            <p
-              class="post-preview"
-            >
-              <MentionText :text="postPreview(post.content)" />
-            </p>
-            
-            <div class="card-footer">
-              <div class="stats">
-                <span class="stat-item"><n-icon><EyeOutline /></n-icon> {{ post.viewCount }}</span>
-                <span class="stat-item"><n-icon><HeartOutline /></n-icon> {{ post.likeCount }}</span>
-                <span class="stat-item"><n-icon><ChatbubblesOutline /></n-icon> {{ post.commentCount }}</span>
-              </div>
-              <div
-                v-if="post.topics && post.topics.length"
-                class="topics"
-              >
-                <span
-                  v-for="t in post.topics"
-                  :key="t"
-                  class="topic-tag"
-                ># {{ t }}</span>
-              </div>
-            </div>
+              精华
+            </n-tag>
           </div>
-        </div>
+
+          <h3
+            v-if="post.title"
+            class="post-title"
+          >
+            {{ post.title }}
+          </h3>
+
+          <div class="post-content">
+            <MentionText :text="postPreview(post.content)" />
+          </div>
+
+          <div
+            v-if="post.topics?.length"
+            class="topic-row"
+          >
+            <span
+              v-for="topic in post.topics"
+              :key="topic"
+              class="topic-tag"
+            ># {{ topic }}</span>
+          </div>
+
+          <div class="post-footer">
+            <span>
+              <n-icon size="16"><EyeOutline /></n-icon>
+              {{ post.viewCount }}
+            </span>
+            <span>
+              <n-icon size="16"><BookmarkOutline /></n-icon>
+              {{ post.likeCount }}
+            </span>
+            <span>
+              <n-icon size="16"><ChatbubblesOutline /></n-icon>
+              {{ post.commentCount }}
+            </span>
+          </div>
+        </article>
 
         <div
           v-if="loading"
-          class="loading-state"
+          class="loading-wrap"
         >
           <n-spin size="large" />
         </div>
+
         <div
           v-if="!hasMore && posts.length > 0"
-          class="end-state"
+          class="end-tip"
         >
-          <div class="divider" />
-          <span>— 没有更多了 —</span>
-          <div class="divider" />
+          已经到底了，去发布你的第一条观点吧。
         </div>
       </div>
-    </div>
+
+      <aside class="side-column">
+        <div class="side-panel cf-surface">
+          <h3>浏览建议</h3>
+          <ul>
+            <li>最新发布：快速追踪校园实时动态</li>
+            <li>热门讨论：查看评论互动最活跃的话题</li>
+            <li>精华推荐：聚焦优质内容与经验总结</li>
+            <li>我的关注：集中查看你关心的人与圈子</li>
+          </ul>
+        </div>
+        <div class="side-panel cf-surface accent-panel">
+          <h3>创作提示</h3>
+          <p>清晰的标题、简洁的正文与恰当的话题标签，会显著提升你的内容曝光率与互动率。</p>
+          <button
+            class="cf-primary-btn side-btn"
+            @click="goCreate"
+          >
+            现在发帖
+          </button>
+        </div>
+      </aside>
+    </section>
   </div>
 </template>
 
 <style scoped lang="scss">
-.square-layout {
-  height: 100%;
+.square-page {
+  height: calc(100vh - var(--cf-header-height) - 48px);
   overflow-y: auto;
-  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 4px;
 }
 
-.header-banner {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 40px 24px 24px;
+.hero-card {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-
-  .banner-content {
-    .page-title {
-      font-size: 36px;
-      font-weight: 800;
-      margin: 0 0 8px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .page-subtitle {
-      color: var(--cf-text-secondary);
-      font-size: 16px;
-      margin: 0;
-    }
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-
-    .action-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--cf-border);
-      color: var(--cf-text-primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 18px;
-      transition: all 0.3s;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        transform: translateY(-2px);
-        color: var(--cf-primary);
-        border-color: var(--cf-primary);
-      }
-      
-      .ai-text {
-        font-size: 14px;
-        font-weight: bold;
-        background: var(--cf-gradient-primary);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-    }
-    
-    .admin-btn {
-      color: var(--cf-warning);
-      &:hover {
-        color: var(--cf-warning);
-        border-color: var(--cf-warning);
-      }
-    }
-
-    .create-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      height: 40px;
-      padding: 0 20px;
-      border-radius: 20px;
-    }
-  }
+  gap: 18px;
+  padding: 24px;
 }
 
-.main-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 24px 40px;
-}
-
-.content-wrapper {
+.hero-actions {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-row {
+  display: flex;
 }
 
 .sort-bar {
   display: flex;
-  padding: 6px;
-  gap: 4px;
-  background: rgba(22, 27, 34, 0.5);
-  border-radius: 16px;
-
-  .sort-item {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 12px;
-    color: var(--cf-text-secondary);
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.3s;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--cf-text-primary);
-    }
-
-    &.active {
-      background: rgba(99, 102, 241, 0.15);
-      color: var(--cf-primary);
-    }
-  }
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  width: 100%;
 }
 
-.post-list {
+.sort-chip {
+  border: none;
+  background: transparent;
+  color: var(--cf-text-secondary);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.sort-chip:hover {
+  background: var(--cf-bg-soft);
+  color: var(--cf-text-primary);
+}
+
+.sort-chip.active {
+  background: var(--cf-primary-soft);
+  color: var(--cf-primary);
+}
+
+.feed-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+}
+
+.feed-column {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
 .post-card {
-  padding: 24px;
+  padding: 22px;
   cursor: pointer;
-  
-  &:hover {
-    transform: translateY(-2px);
-  }
+}
 
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 16px;
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
 
-    .author-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+.author-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
-      .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 16px;
-      }
+.avatar-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cf-primary-soft);
+  color: var(--cf-primary);
+  font-family: var(--cf-font-heading);
+  font-weight: 700;
+}
 
-      .author-meta {
-        display: flex;
-        flex-direction: column;
-        
-        .author-name {
-          font-weight: 600;
-          color: var(--cf-text-primary);
-          font-size: 15px;
-        }
-        .post-time {
-          color: var(--cf-text-secondary);
-          font-size: 12px;
-          margin-top: 2px;
-        }
-      }
-    }
-    
-    .essence-tag {
-      font-weight: bold;
-      background: rgba(210, 153, 34, 0.1);
-      border: 1px solid rgba(210, 153, 34, 0.3);
-    }
-  }
+.author-name {
+  font-weight: 700;
+}
 
-  .post-title {
-    margin: 0 0 12px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--cf-text-primary);
-    line-height: 1.4;
-  }
+.author-meta {
+  margin-top: 4px;
+  color: var(--cf-text-muted);
+  font-size: 13px;
+}
 
-  .post-preview {
-    color: var(--cf-text-secondary);
-    font-size: 15px;
-    line-height: 1.6;
-    margin: 0 0 20px;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+.post-title {
+  margin: 18px 0 10px;
+  font-family: var(--cf-font-heading);
+  font-size: 24px;
+  line-height: 1.3;
+}
 
-    :deep(.mention-link) {
-      color: var(--cf-primary);
-      text-decoration: none;
-      background: rgba(99, 102, 241, 0.1);
-      padding: 0 4px;
-      border-radius: 4px;
-      &:hover { text-decoration: underline; }
-    }
-  }
+.post-content {
+  color: var(--cf-text-secondary);
+  line-height: 1.8;
+}
 
-  .card-footer {
-    display: flex;
-    justify-content: space-between;
+.topic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.topic-tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cf-bg-soft);
+  color: var(--cf-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.post-footer {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cf-border);
+  color: var(--cf-text-muted);
+
+  span {
+    display: inline-flex;
     align-items: center;
-    border-top: 1px solid var(--cf-border);
-    padding-top: 16px;
-
-    .stats {
-      display: flex;
-      gap: 20px;
-      
-      .stat-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        color: var(--cf-text-secondary);
-        font-size: 13px;
-        transition: color 0.3s;
-        
-        &:hover { color: var(--cf-primary); }
-      }
-    }
-
-    .topics {
-      display: flex;
-      gap: 8px;
-      
-      .topic-tag {
-        font-size: 12px;
-        color: var(--cf-accent);
-        background: rgba(139, 92, 246, 0.1);
-        padding: 4px 10px;
-        border-radius: 12px;
-        transition: all 0.3s;
-        
-        &:hover {
-          background: rgba(139, 92, 246, 0.2);
-        }
-      }
-    }
+    gap: 6px;
   }
 }
 
-.empty-state {
-  padding: 80px 0;
-  text-align: center;
+.side-column {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  
-  h3 { margin: 20px 0 8px; color: var(--cf-text-primary); font-size: 20px; }
-  .empty-desc { margin: 0; color: var(--cf-text-secondary); font-size: 15px; }
-  .mt-4 { margin-top: 24px; }
-}
-
-.loading-state {
-  padding: 40px;
-  display: flex;
-  justify-content: center;
-}
-
-.end-state {
-  display: flex;
-  align-items: center;
   gap: 16px;
-  padding: 24px 0;
-  color: var(--cf-text-secondary);
+  position: sticky;
+  top: 0;
+}
+
+.side-panel {
+  padding: 20px;
+
+  h3 {
+    margin: 0 0 12px;
+    font-family: var(--cf-font-heading);
+    font-size: 22px;
+  }
+
+  p,
+  li {
+    color: var(--cf-text-secondary);
+    line-height: 1.75;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+}
+
+.accent-panel {
+  background: linear-gradient(180deg, rgba(229, 238, 255, 0.9), #ffffff);
+}
+
+.side-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.empty-wrap,
+.loading-wrap,
+.end-tip {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 28px;
+}
+
+.end-tip {
+  color: var(--cf-text-muted);
   font-size: 14px;
-  
-  .divider {
-    flex: 1;
-    height: 1px;
-    background: var(--cf-border);
+}
+
+@media (max-width: 1100px) {
+  .feed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .side-column {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .square-page {
+    height: auto;
+  }
+
+  .hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .side-column {
+    grid-template-columns: 1fr;
   }
 }
 </style>

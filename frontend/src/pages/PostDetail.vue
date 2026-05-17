@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NInput, NTag, NSpace, NSpin, NModal, NSelect, useMessage } from 'naive-ui';
-import { getPostById, deletePost, toggleReaction } from '@/api/posts';
-import { createComment, getComments, deleteComment, toggleCommentReaction } from '@/api/comments';
-import { getQaInfo, acceptAnswer } from '@/api/qa';
+import { NButton, NCard, NEmpty, NIcon, NInput, NModal, NSelect, NSpin, NTag, useMessage } from 'naive-ui';
+import { acceptAnswer, getQaInfo } from '@/api/qa';
+import { deleteComment, createComment, getComments, toggleCommentReaction } from '@/api/comments';
+import { deletePost, getPostById, toggleReaction } from '@/api/posts';
 import { createReport } from '@/api/report';
 import { useAuthStore } from '@/stores/auth';
 import MentionText from '@/components/MentionText.vue';
-import type { PostVO, CommentVO } from '@/types/post';
+import type { CommentVO, PostVO } from '@/types/post';
 import type { QaQuestionVO } from '@/types/qa';
+import { ArrowBackOutline, ChatbubbleOutline, ChatbubblesOutline, HeartOutline, LinkOutline, MegaphoneOutline, PencilOutline, PricetagOutline, RibbonOutline, ShieldCheckmarkOutline, TrashOutline, PersonOutline } from '@vicons/ionicons5';
 
 const route = useRoute();
 const router = useRouter();
@@ -24,11 +25,9 @@ const commentText = ref('');
 const replyTo = ref<{ id: number; nickname: string } | null>(null);
 const submitting = ref(false);
 const acceptingId = ref<number | null>(null);
-
-// 举报弹窗状态
 const reportModalShow = ref(false);
 const reportTargetId = ref<number>(0);
-const reportTargetType = ref('POST');
+const reportTargetType = ref<'POST' | 'COMMENT'>('POST');
 const reportReason = ref('SPAM');
 const reportDesc = ref('');
 const reportSubmitting = ref(false);
@@ -41,7 +40,16 @@ const reportReasons = [
   { label: '其他', value: 'OTHER' },
 ];
 
-function openReport(targetType: string, targetId: number) {
+const currentUserId = computed(() => authStore.user?.id);
+const isQaPost = computed(() => post.value?.type === 'QA');
+const isPostAuthor = computed(() => currentUserId.value === post.value?.authorId);
+
+function goUser(userId?: number | null) {
+  if (!userId) return;
+  router.push(`/users/${userId}`);
+}
+
+function openReport(targetType: 'POST' | 'COMMENT', targetId: number) {
   reportTargetType.value = targetType;
   reportTargetId.value = targetId;
   reportReason.value = 'SPAM';
@@ -62,17 +70,9 @@ async function submitReport() {
     reportModalShow.value = false;
   } catch {
     message.error('举报失败');
+  } finally {
+    reportSubmitting.value = false;
   }
-  reportSubmitting.value = false;
-}
-
-const currentUserId = computed(() => authStore.user?.id);
-const isQaPost = () => post.value?.type === 'QA';
-const isPostAuthor = () => currentUserId.value === post.value?.authorId;
-
-function goUser(userId?: number | null) {
-  if (!userId) return;
-  router.push(`/users/${userId}`);
 }
 
 async function loadPost() {
@@ -80,27 +80,15 @@ async function loadPost() {
   try {
     const id = Number(route.params.id);
     post.value = await getPostById(id);
-    const isQa = post.value?.type === 'QA';
-    comments.value = await getComments(id, undefined, 20, isQa);
-    if (isQa) {
+    comments.value = await getComments(id, undefined, 20, post.value?.type === 'QA');
+    if (post.value?.type === 'QA') {
       qa.value = await getQaInfo(id);
     }
   } catch {
     post.value = null;
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
-}
-
-async function handleAccept(commentId: number) {
-  if (!post.value) return;
-  acceptingId.value = commentId;
-  try {
-    qa.value = await acceptAnswer(post.value.id, commentId);
-    message.success('已采纳该回答');
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '采纳失败');
-  }
-  acceptingId.value = null;
 }
 
 async function handleLike() {
@@ -139,30 +127,28 @@ async function submitComment() {
   if (!post.value || !commentText.value.trim()) return;
   submitting.value = true;
   try {
-    const data = {
+    await createComment({
       postId: post.value.id,
       parentId: replyTo.value?.id,
       replyToId: replyTo.value?.id,
       content: commentText.value,
-    };
-    await createComment(data);
+    });
     message.success('评论成功');
     commentText.value = '';
     replyTo.value = null;
-    // 重新加载评论
-    comments.value = await getComments(post.value.id, undefined, 20, isQaPost());
-    if (post.value) post.value.commentCount++;
+    comments.value = await getComments(post.value.id, undefined, 20, post.value?.type === 'QA');
+    if (post.value) post.value.commentCount += 1;
   } catch {
     message.error('评论失败');
+  } finally {
+    submitting.value = false;
   }
-  submitting.value = false;
 }
 
 async function handleCommentLike(comment: CommentVO) {
   try {
     const liked = await toggleCommentReaction(comment.id, 'LIKE');
-    if (comment.likeCount == null) comment.likeCount = 0;
-    comment.likeCount += liked ? 1 : -1;
+    comment.likeCount = (comment.likeCount || 0) + (liked ? 1 : -1);
   } catch {
     message.error('操作失败');
   }
@@ -173,12 +159,36 @@ async function handleDeleteComment(commentId: number) {
     await deleteComment(commentId);
     message.success('已删除');
     if (post.value) {
-      comments.value = await getComments(post.value.id, undefined, 20, isQaPost());
-      post.value.commentCount--;
+      comments.value = await getComments(post.value.id, undefined, 20, post.value?.type === 'QA');
+      post.value.commentCount -= 1;
     }
   } catch {
     message.error('删除失败');
   }
+}
+
+async function handleAccept(commentId: number) {
+  if (!post.value) return;
+  acceptingId.value = commentId;
+  try {
+    qa.value = await acceptAnswer(post.value.id, commentId);
+    message.success('已采纳该回答');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '采纳失败');
+  } finally {
+    acceptingId.value = null;
+  }
+}
+
+function formatTime(value?: string) {
+  if (!value) return '刚刚';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '刚刚';
+  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatAuthorName(comment: CommentVO) {
+  return comment.author?.nickname || '匿名用户';
 }
 
 onMounted(loadPost);
@@ -186,506 +196,587 @@ onMounted(loadPost);
 
 <template>
   <div class="detail-page">
-    <template v-if="loading">
-      <div class="loading">
-        <NSpin />
+    <div class="page-head cf-surface">
+      <button
+        class="back-btn"
+        @click="router.back()"
+      >
+        <n-icon size="18"><ArrowBackOutline /></n-icon>
+      </button>
+      <div>
+        <span class="cf-pill">Post Detail</span>
+        <h1 class="cf-section-title">
+          帖子详情
+        </h1>
+        <p class="cf-section-subtitle">
+          统一为更清晰的内容阅读页，同时保留评论、采纳、举报与删除能力。
+        </p>
       </div>
-    </template>
+    </div>
+
+    <div v-if="loading" class="loading-wrap">
+      <n-spin size="large" />
+    </div>
 
     <template v-else-if="post">
-      <NCard class="post-content">
-        <div class="post-header">
-          <button
-            type="button"
-            class="author-info author-link"
-            @click="goUser(post.authorId)"
-          >
-            <div class="avatar">
-              {{ post.author?.nickname?.charAt(0) || '?' }}
-            </div>
-            <div>
-              <div class="author-name">
-                {{ post.author?.nickname || '匿名' }}
-              </div>
-              <div class="post-time">
-                {{ new Date(post.createdAt).toLocaleString() }}
-              </div>
-            </div>
-          </button>
-          <NSpace>
-            <NTag
-              v-if="post.isEssence === 1"
-              type="warning"
-              size="small"
-            >
-              精华
-            </NTag>
-            <NButton
-              size="small"
-              type="warning"
-              @click="openReport('POST', post.id)"
-            >
-              举报
-            </NButton>
-            <NButton
-              size="small"
-              type="info"
-              @click="router.push('/posts/new?quote=' + post.id)"
-            >
-              引用
-            </NButton>
-            <NButton
-              v-if="currentUserId === post.authorId"
-              size="small"
-              type="error"
-              @click="handleDeletePost"
-            >
-              删除
-            </NButton>
-          </NSpace>
-        </div>
-
-        <h2
-          v-if="post.title"
-          class="post-title"
-        >
-          {{ post.title }}
-        </h2>
-        <p
-          class="post-body"
-        >
-          <MentionText :text="post.content" />
-        </p>
-
-        <NSpace
-          v-if="post.topics && post.topics.length"
-          class="topics"
-        >
-          <NTag
-            v-for="t in post.topics"
-            :key="t"
-            size="small"
-          >
-            {{ t }}
-          </NTag>
-        </NSpace>
-
-        <!-- 问答信息 -->
-        <div
-          v-if="isQaPost() && qa"
-          class="qa-info"
-        >
-          <NTag
-            type="warning"
-            size="small"
-          >
-            悬赏 {{ qa.bountyPoints }} 积分
-          </NTag>
-          <NTag
-            v-if="qa.isSolved"
-            type="success"
-            size="small"
-          >
-            已解决
-          </NTag>
-          <NTag
-            v-else
-            type="info"
-            size="small"
-          >
-            待解决
-          </NTag>
-        </div>
-
-        <div class="post-stats">
-          <NButton
-            :type="post.liked ? 'primary' : 'default'"
-            size="small"
-            @click="handleLike"
-          >
-            {{ post.liked ? '已赞' : '点赞' }} ({{ post.likeCount }})
-          </NButton>
-          <span>{{ post.viewCount }} 浏览</span>
-          <span>{{ post.commentCount }} 评论</span>
-        </div>
-      </NCard>
-
-      <!-- 评论区 -->
-      <NCard class="comments-section">
-        <h3>评论 ({{ post.commentCount }})</h3>
-
-        <!-- 发表评论 -->
-        <div class="comment-form">
-          <div
-            v-if="replyTo"
-            class="reply-hint"
-          >
-            回复 @{{ replyTo.nickname }}
-            <NButton
-              size="tiny"
-              text
-              @click="cancelReply"
-            >
-              取消
-            </NButton>
-          </div>
-          <NInput
-            v-model:value="commentText"
-            type="textarea"
-            placeholder="写评论..."
-            :autosize="{ minRows: 2, maxRows: 4 }"
-          />
-          <NButton
-            type="primary"
-            size="small"
-            :loading="submitting"
-            :disabled="!commentText.trim()"
-            class="submit-btn"
-            @click="submitComment"
-          >
-            发表
-          </NButton>
-        </div>
-
-        <!-- 评论列表 -->
-        <div
-          v-for="c in comments"
-          :key="c.id"
-          class="comment-item"
-        >
-          <button
-            type="button"
-            class="comment-avatar user-avatar-link"
-            @click="goUser(c.authorId)"
-          >
-            {{ c.author?.nickname?.charAt(0) || '?' }}
-          </button>
-          <div class="comment-body">
-            <div class="comment-header">
+      <div class="content-grid">
+        <section class="main-column">
+          <article class="post-card cf-card">
+            <div class="post-top">
               <button
-                type="button"
-                class="comment-author user-name-link"
-                @click="goUser(c.authorId)"
+                class="author-link"
+                @click="goUser(post.authorId)"
               >
-                {{ c.author?.nickname || '匿名' }}
+                <div class="avatar-badge">
+                  {{ post.author?.nickname?.charAt(0) || '?' }}
+                </div>
+                <div>
+                  <div class="author-name">
+                    {{ post.author?.nickname || '匿名用户' }}
+                  </div>
+                  <div class="post-meta">
+                    <span>{{ formatTime(post.createdAt) }}</span>
+                    <span>·</span>
+                    <span>阅读 {{ post.viewCount }}</span>
+                  </div>
+                </div>
               </button>
-              <span class="comment-time">{{ new Date(c.createdAt).toLocaleDateString() }}</span>
-            </div>
-            <p
-              class="comment-text"
-            >
-              <MentionText :text="c.content" />
-            </p>
-            <div class="comment-actions">
-              <NButton
-                size="tiny"
-                text
-                @click="handleCommentLike(c)"
-              >
-                👍 {{ c.likeCount || 0 }}
-              </NButton>
-              <NButton
-                size="tiny"
-                text
-                @click="handleReply(c)"
-              >
-                回复
-              </NButton>
-              <NButton
-                size="tiny"
-                text
-                type="warning"
-                @click="openReport('COMMENT', c.id)"
-              >
-                举报
-              </NButton>
-              <NButton
-                v-if="isQaPost() && isPostAuthor() && !qa?.isSolved"
-                size="tiny"
-                text
-                type="success"
-                :loading="acceptingId === c.id"
-                @click="handleAccept(c.id)"
-              >
-                采纳
-              </NButton>
-              <NButton
-                v-if="currentUserId === c.authorId"
-                size="tiny"
-                text
-                type="error"
-                @click="handleDeleteComment(c.id)"
-              >
-                删除
-              </NButton>
-            </div>
-            <NTag
-              v-if="qa?.acceptedCommentId === c.id"
-              type="success"
-              size="tiny"
-            >
-              已采纳
-            </NTag>
 
-            <!-- 子评论 -->
-            <div
-              v-if="c.replies && c.replies.length"
-              class="replies"
-            >
-              <div
-                v-for="r in c.replies"
-                :key="r.id"
-                class="reply-item"
-              >
-                <button
-                  type="button"
-                  class="reply-author user-name-link"
-                  @click="goUser(r.authorId)"
-                >
-                  {{ r.author?.nickname || '匿名' }}
+              <div class="top-actions">
+                <n-tag v-if="post.isEssence === 1" round type="warning" size="small">精华</n-tag>
+                <n-tag v-if="post.type === 'QA'" round type="info" size="small">问答</n-tag>
+                <button class="icon-btn" @click="openReport('POST', post.id)">
+                  <n-icon size="16"><ShieldCheckmarkOutline /></n-icon>
                 </button>
-                <span
-                  class="reply-text"
+                <button class="icon-btn" @click="router.push('/posts/new?quote=' + post.id)">
+                  <n-icon size="16"><LinkOutline /></n-icon>
+                </button>
+                <button
+                  v-if="isPostAuthor"
+                  class="icon-btn danger"
+                  @click="handleDeletePost"
                 >
-                  <MentionText :text="r.content" />
-                </span>
-                <span class="reply-time">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
+                  <n-icon size="16"><TrashOutline /></n-icon>
+                </button>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div
-          v-if="comments.length === 0"
-          class="no-comments"
-        >
-          <p>暂无评论</p>
-        </div>
-      </NCard>
+            <h2 v-if="post.title" class="post-title">
+              {{ post.title }}
+            </h2>
+
+            <div class="post-content">
+              <MentionText :text="post.content" />
+            </div>
+
+            <div v-if="post.topics?.length" class="topic-row">
+              <span v-for="topic in post.topics" :key="topic" class="topic-tag">
+                <n-icon size="14"><PricetagOutline /></n-icon>
+                {{ topic }}
+              </span>
+            </div>
+
+            <div v-if="post.type === 'QA' && qa" class="qa-strip">
+              <div>
+                <strong>悬赏 {{ qa.bountyPoints }} 积分</strong>
+                <span>{{ qa.isSolved ? '已解决' : '等待高质量回答' }}</span>
+              </div>
+              <n-tag :type="qa.isSolved ? 'success' : 'info'" round>
+                {{ qa.isSolved ? '已采纳' : '待解决' }}
+              </n-tag>
+            </div>
+
+            <div class="post-actions">
+              <button
+                class="action-btn"
+                :class="{ active: post.liked }"
+                @click="handleLike"
+              >
+                <n-icon size="16"><HeartOutline /></n-icon>
+                {{ post.likeCount }}
+              </button>
+              <button class="action-btn">
+                <n-icon size="16"><ChatbubblesOutline /></n-icon>
+                {{ post.commentCount }}
+              </button>
+              <button class="action-btn" @click="openReport('POST', post.id)">
+                <n-icon size="16"><MegaphoneOutline /></n-icon>
+                举报
+              </button>
+            </div>
+          </article>
+
+          <section class="comments-card cf-card">
+            <div class="section-title-row">
+              <h3>评论</h3>
+              <span>{{ post.commentCount }} 条互动</span>
+            </div>
+
+            <div class="comment-editor">
+              <div v-if="replyTo" class="reply-banner">
+                正在回复 @{{ replyTo.nickname }}
+                <button class="text-link" @click="cancelReply">取消</button>
+              </div>
+              <n-input
+                v-model:value="commentText"
+                type="textarea"
+                class="cf-textarea"
+                placeholder="写下你的想法，或者补充你的观点"
+                :autosize="{ minRows: 4, maxRows: 10 }"
+              />
+              <div class="editor-actions">
+                <button class="cf-secondary-btn" @click="cancelReply">清空</button>
+                <button class="cf-primary-btn" :disabled="submitting" @click="submitComment">
+                  发布评论
+                </button>
+              </div>
+            </div>
+
+            <div v-if="comments.length === 0" class="empty-comment">
+              <n-empty description="还没有评论，来抢首评吧" />
+            </div>
+
+            <div v-else class="comment-list">
+              <article v-for="comment in comments" :key="comment.id" class="comment-item">
+                <div class="comment-line" />
+                <div class="comment-body">
+                  <div class="comment-header">
+                    <button class="author-link small" @click="goUser(comment.authorId)">
+                      <div class="comment-avatar">{{ formatAuthorName(comment).charAt(0) }}</div>
+                      <div>
+                        <strong>{{ formatAuthorName(comment) }}</strong>
+                        <span>{{ formatTime(comment.createdAt) }}</span>
+                      </div>
+                    </button>
+                    <div class="comment-actions">
+                      <button class="text-link" @click="handleReply(comment)">回复</button>
+                      <button class="text-link" @click="handleCommentLike(comment)">
+                        点赞 {{ comment.likeCount || 0 }}
+                      </button>
+                      <button class="text-link danger" @click="openReport('COMMENT', comment.id)">举报</button>
+                      <button
+                        v-if="currentUserId === comment.authorId"
+                        class="text-link danger"
+                        @click="handleDeleteComment(comment.id)"
+                      >删除</button>
+                      <button
+                        v-if="isPostAuthor && post.type === 'QA' && !qa?.isSolved"
+                        class="text-link strong"
+                        :disabled="acceptingId === comment.id"
+                        @click="handleAccept(comment.id)"
+                      >采纳</button>
+                    </div>
+                  </div>
+                  <div class="comment-content">
+                    <MentionText :text="comment.content" />
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <aside class="side-column">
+          <div class="side-panel cf-surface">
+            <h3>帖子信息</h3>
+            <div class="info-row"><span>作者</span><strong>{{ post.author?.nickname || '匿名用户' }}</strong></div>
+            <div class="info-row"><span>发布时间</span><strong>{{ formatTime(post.createdAt) }}</strong></div>
+            <div class="info-row"><span>评论数</span><strong>{{ post.commentCount }}</strong></div>
+            <div class="info-row"><span>点赞数</span><strong>{{ post.likeCount }}</strong></div>
+          </div>
+          <div v-if="post.type === 'QA' && qa" class="side-panel cf-surface accent-panel">
+            <h3>问答状态</h3>
+            <p>该问题适合继续补充实战经验、案例或者参考资料。</p>
+            <n-tag :type="qa.isSolved ? 'success' : 'info'" round>
+              {{ qa.isSolved ? '问题已解决' : '仍在等待答案' }}
+            </n-tag>
+          </div>
+        </aside>
+      </div>
     </template>
 
-    <!-- 举报弹窗 -->
-    <NModal
-      v-model:show="reportModalShow"
-      title="举报"
-    >
-      <div style="padding: 16px; width: 400px;">
-        <NSelect
-          v-model:value="reportReason"
-          :options="reportReasons"
-          style="margin-bottom: 12px;"
-          placeholder="选择举报原因"
-        />
-        <NInput
-          v-model:value="reportDesc"
-          type="textarea"
-          placeholder="补充说明（可选）"
-          :autosize="{ minRows: 3, maxRows: 6 }"
-        />
-        <NSpace style="margin-top: 16px; justify-content: flex-end;">
-          <NButton @click="reportModalShow = false">
-            取消
-          </NButton>
-          <NButton
-            type="primary"
-            :loading="reportSubmitting"
-            @click="submitReport"
-          >
-            提交
-          </NButton>
-        </NSpace>
+    <div v-else class="loading-wrap">
+      <n-empty description="帖子不存在或已被删除" />
+    </div>
+
+    <n-modal v-model:show="reportModalShow" preset="card" title="举报内容" style="width: 520px;">
+      <div class="report-form">
+        <div class="form-block">
+          <label>举报对象</label>
+          <div>{{ reportTargetType }} #{{ reportTargetId }}</div>
+        </div>
+        <div class="form-block">
+          <label>举报原因</label>
+          <n-select v-model:value="reportReason" :options="reportReasons" />
+        </div>
+        <div class="form-block">
+          <label>补充说明</label>
+          <n-input v-model:value="reportDesc" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" placeholder="选填" />
+        </div>
       </div>
-    </NModal>
+      <template #action>
+        <div class="modal-actions">
+          <button class="cf-secondary-btn" @click="reportModalShow = false">取消</button>
+          <button class="cf-primary-btn" :disabled="reportSubmitting" @click="submitReport">提交举报</button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .detail-page {
-  max-width: 720px;
-  margin: 40px auto;
-  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
-.loading {
-  text-align: center;
-  padding: 80px;
+
+.page-head {
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
-.post-content {
-  margin-bottom: 20px;
+
+.back-btn,
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--cf-border);
+  background: var(--cf-bg-elevated);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--cf-text-secondary);
 }
-.post-header {
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+}
+
+.main-column,
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.post-card,
+.comments-card,
+.side-panel {
+  padding: 22px;
+}
+
+.post-top {
   display: flex;
   justify-content: space-between;
+  gap: 16px;
   align-items: flex-start;
-  margin-bottom: 16px;
 }
-.author-info {
-  display: flex;
+
+.author-link {
+  display: inline-flex;
   align-items: center;
   gap: 12px;
-}
-.author-link {
-  padding: 0;
-  border: 0;
   background: transparent;
-  color: inherit;
+  border: none;
+  padding: 0;
   cursor: pointer;
   text-align: left;
 }
-.author-link:hover .author-name,
-.user-name-link:hover {
-  color: #18a058;
-  text-decoration: underline;
+
+.author-link.small .comment-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
 }
-.avatar {
+
+.avatar-badge,
+.comment-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #18a058;
-  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: bold;
-}
-.author-name {
-  font-weight: 600;
-}
-.post-time {
-  color: #999;
-  font-size: 12px;
-}
-.post-title {
-  margin: 0 0 12px;
-}
-.post-body {
-  line-height: 1.8;
-  white-space: pre-wrap;
-  margin-bottom: 16px;
-}
-.post-body :deep(.mention-link),
-.comment-text :deep(.mention-link),
-.reply-text :deep(.mention-link) {
-  color: #18a058;
-  text-decoration: none;
-  font-weight: 500;
-}
-.post-body :deep(.mention-link):hover,
-.comment-text :deep(.mention-link):hover,
-.reply-text :deep(.mention-link):hover {
-  text-decoration: underline;
-}
-.topics {
-  margin-bottom: 16px;
-}
-.qa-info {
-  margin-bottom: 16px;
-}
-.post-stats {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 14px;
-  color: #666;
-}
-.comments-section h3 {
-  margin: 0 0 16px;
-}
-.comment-form {
-  margin-bottom: 24px;
-}
-.reply-hint {
-  color: #18a058;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-.submit-btn {
-  margin-top: 8px;
-}
-.comment-item {
-  display: flex;
-  gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.comment-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #18a058;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  background: var(--cf-primary-soft);
+  color: var(--cf-primary);
+  font-weight: 700;
   flex-shrink: 0;
 }
-.user-avatar-link {
-  padding: 0;
-  border: 0;
-  cursor: pointer;
+
+.author-name {
+  font-weight: 700;
 }
-.user-avatar-link:hover,
-.author-link:hover .avatar {
-  filter: brightness(1.08);
-  box-shadow: 0 0 0 3px rgba(24, 160, 88, 0.15);
-}
-.comment-body {
-  flex: 1;
-}
-.comment-header {
-  margin-bottom: 4px;
-}
-.comment-author {
-  font-weight: 600;
-  font-size: 14px;
-  margin-right: 8px;
-}
-.user-name-link {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-}
-.comment-time {
-  color: #999;
-  font-size: 12px;
-}
-.comment-text {
-  margin: 4px 0;
-  font-size: 14px;
-  line-height: 1.6;
-}
-.comment-actions {
+
+.post-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--cf-text-muted);
+  font-size: 13px;
   margin-top: 4px;
 }
-.replies {
-  margin-top: 10px;
-  padding: 8px 12px;
-  background: #f9f9f9;
-  border-radius: 6px;
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.reply-item {
-  padding: 4px 0;
+
+.icon-btn.danger {
+  color: var(--cf-danger);
+}
+
+.post-title {
+  margin: 18px 0 12px;
+  font-family: var(--cf-font-heading);
+  font-size: 28px;
+  line-height: 1.25;
+}
+
+.post-content {
+  color: var(--cf-text-secondary);
+  line-height: 1.9;
+}
+
+.topic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.topic-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cf-bg-soft);
+  color: var(--cf-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.qa-strip {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(229, 238, 255, 0.9), rgba(255,255,255,0.95));
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+
+  strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  span {
+    color: var(--cf-text-muted);
+    font-size: 13px;
+  }
+}
+
+.post-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cf-border);
+}
+
+.action-btn {
+  border: 1px solid var(--cf-border);
+  background: var(--cf-bg-elevated);
+  color: var(--cf-text-secondary);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.action-btn.active {
+  background: var(--cf-primary-soft);
+  color: var(--cf-primary);
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0;
+    font-family: var(--cf-font-heading);
+    font-size: 24px;
+  }
+
+  span {
+    color: var(--cf-text-muted);
+    font-size: 13px;
+  }
+}
+
+.comment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.reply-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--cf-bg-soft);
+  color: var(--cf-text-secondary);
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.empty-comment,
+.loading-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.comment-item {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.comment-line {
+  width: 2px;
+  border-radius: 999px;
+  background: var(--cf-border);
+  margin-left: 6px;
+}
+
+.comment-body {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--cf-border);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.comment-header strong {
+  display: block;
+}
+
+.comment-header span {
+  color: var(--cf-text-muted);
   font-size: 13px;
 }
-.reply-author {
-  font-weight: 600;
-  margin-right: 8px;
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
-.reply-text {
-  color: #333;
+
+.comment-content {
+  margin-top: 12px;
+  color: var(--cf-text-secondary);
+  line-height: 1.85;
 }
-.reply-time {
-  color: #999;
-  font-size: 11px;
-  margin-left: 8px;
+
+.text-link {
+  border: none;
+  background: transparent;
+  color: var(--cf-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+
+  &.danger {
+    color: var(--cf-danger);
+  }
+
+  &.strong {
+    font-weight: 700;
+  }
 }
-.no-comments {
-  text-align: center;
-  color: #999;
-  padding: 24px;
+
+.side-panel h3 {
+  margin: 0 0 14px;
+  font-family: var(--cf-font-heading);
+  font-size: 22px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--cf-text-secondary);
+  border-bottom: 1px solid rgba(217, 226, 242, 0.55);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row strong {
+  color: var(--cf-text-primary);
+}
+
+.accent-panel {
+  background: linear-gradient(180deg, rgba(229, 238, 255, 0.9), #ffffff);
+}
+
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1100px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

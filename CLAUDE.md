@@ -17,10 +17,10 @@ CampusForum — 基于多租户开源架构与 AI 增强的高校轻量化学习
 
 ## 常用命令
 
-**后端**（`backend/`，Spring Boot Maven 项目，JDK 21）：
+**后端**（`backend/`，Spring Boot Maven 项目，JDK 17）：
 
 ```bash
-export JAVA_HOME=/home/morose/.local/jdk-21.0.2
+export JAVA_HOME=/home/morose/.local/jdk-17
 cd backend
 /mnt/d/develop/apache-maven-3.9.4/bin/mvn spring-boot:run        # 启动开发服务器
 /mnt/d/develop/apache-maven-3.9.4/bin/mvn test                   # 运行全部单元测试
@@ -54,7 +54,7 @@ docker compose up -d       # 直接 compose 启动
 | 层 | 选型 |
 |---|---|
 | 前端 | Vue3 + Composition API + Vite 5 + Naive UI + Pinia + vite-plugin-pwa |
-| 后端 | Java 21 + Spring Boot 3.x + MyBatis-Plus + Sa-Token |
+| 后端 | Java 17 + Spring Boot 3.x + MyBatis-Plus + Sa-Token |
 | 数据库 | MySQL 8.0 |
 | 缓存 | Redis 7 + Caffeine（二级缓存） |
 | 搜索 | MeiliSearch（MySQL FULLTEXT 兜底） |

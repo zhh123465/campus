@@ -9,8 +9,8 @@ CampusForum is a modular full-stack application. Backend code lives in `backend/
 Backend commands run from `backend/`:
 
 ```bash
-JAVA_HOME=/home/morose/.local/jdk-21.0.2 /mnt/d/develop/apache-maven-3.9.4/bin/mvn test
-JAVA_HOME=/home/morose/.local/jdk-21.0.2 /mnt/d/develop/apache-maven-3.9.4/bin/mvn spring-boot:run
+JAVA_HOME=/home/morose/.local/jdk-17 /mnt/d/develop/apache-maven-3.9.4/bin/mvn test
+JAVA_HOME=/home/morose/.local/jdk-17 /mnt/d/develop/apache-maven-3.9.4/bin/mvn spring-boot:run
 ```
 
 Frontend commands run from `frontend/`:

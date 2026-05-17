@@ -1,25 +1,29 @@
 <script setup lang="ts">
-import { h, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { computed, h, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { getMe, logout as apiLogout } from '@/api/auth';
 import {
-  PlanetOutline,
-  CheckmarkCircleOutline,
-  StarOutline,
-  SparklesOutline,
-  SearchOutline,
-  NotificationsOutline,
   ChatbubblesOutline,
-  PersonOutline,
+  CheckmarkCircleOutline,
   LogOutOutline,
-  BonfireOutline
+  NotificationsOutline,
+  PersonOutline,
+  PlanetOutline,
+  SearchOutline,
+  SparklesOutline,
+  StarOutline,
+  BonfireOutline,
+  MenuOutline,
+  CloseOutline,
 } from '@vicons/ionicons5';
-import { NIcon, NAvatar, NDropdown, NInput } from 'naive-ui';
+import { NAvatar, NDropdown, NIcon, NInput } from 'naive-ui';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const mobileMenuVisible = ref(false);
+const searchKeyword = ref('');
 
 const navLinks = [
   { name: '广场', path: '/square', icon: PlanetOutline },
@@ -29,137 +33,235 @@ const navLinks = [
   { name: 'AI 助手', path: '/ai', icon: SparklesOutline },
 ];
 
-onMounted(async () => {
-  if (authStore.isLoggedIn && !authStore.user) {
-    try {
-      const user = await getMe();
-      authStore.setUser(user);
-    } catch (e) {
-      authStore.logout();
-      router.push('/login');
-    }
-  }
+const pageTitle = computed(() => {
+  const current = navLinks.find((item) => route.path.startsWith(item.path));
+  if (current) return current.name;
+  if (route.path.startsWith('/posts/new')) return '发布帖子';
+  if (route.path.startsWith('/posts/')) return '帖子详情';
+  if (route.path.startsWith('/resources')) return '资源中心';
+  if (route.path.startsWith('/search')) return '搜索';
+  if (route.path.startsWith('/notifications')) return '通知';
+  if (route.path.startsWith('/messages')) return '私信';
+  if (route.path.startsWith('/users/')) return '个人主页';
+  if (route.path.startsWith('/profile')) return '我的资料';
+  return 'CampusForum';
 });
 
 const userDropdownOptions = [
   {
     label: '个人中心',
     key: 'profile',
-    icon: () => h(NIcon, null, { default: () => h(PersonOutline) })
+    icon: () => h(NIcon, null, { default: () => h(PersonOutline) }),
   },
   {
     label: '退出登录',
     key: 'logout',
-    icon: () => h(NIcon, null, { default: () => h(LogOutOutline) })
-  }
+    icon: () => h(NIcon, null, { default: () => h(LogOutOutline) }),
+  },
 ];
+
+onMounted(async () => {
+  if (authStore.isLoggedIn && !authStore.user) {
+    try {
+      const user = await getMe();
+      authStore.setUser(user);
+    } catch {
+      authStore.logout();
+      router.push('/login');
+    }
+  }
+});
 
 async function handleDropdownSelect(key: string | number) {
   if (key === 'profile') {
     router.push('/profile');
-  } else if (key === 'logout') {
-    await apiLogout();
-    authStore.logout();
-    router.push('/login');
+    return;
+  }
+
+  if (key === 'logout') {
+    try {
+      await apiLogout();
+    } finally {
+      authStore.logout();
+      router.push('/login');
+    }
   }
 }
 
-function handleSearch(query: string) {
-  if (query.trim()) {
-    router.push({ path: '/search', query: { q: query } });
-  }
+function handleSearch() {
+  const query = searchKeyword.value.trim();
+  if (!query) return;
+  router.push({ path: '/search', query: { q: query } });
+  mobileMenuVisible.value = false;
+}
+
+function navigate(path: string) {
+  router.push(path);
+  mobileMenuVisible.value = false;
+}
+
+function toggleMobileMenu() {
+  mobileMenuVisible.value = !mobileMenuVisible.value;
 }
 </script>
 
 <template>
   <div class="main-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar glass-panel">
-      <div
-        class="logo-area"
-        @click="router.push('/')"
-      >
-        <n-icon
-          size="28"
-          color="#6366f1"
+    <aside
+      class="sidebar"
+      :class="{ 'is-open': mobileMenuVisible }"
+    >
+      <div class="sidebar-header">
+        <div
+          class="brand"
+          @click="navigate('/')"
         >
-          <PlanetOutline />
-        </n-icon>
-        <span class="logo-text">CampusForum</span>
+          <div class="brand-icon">
+            <n-icon size="20">
+              <PlanetOutline />
+            </n-icon>
+          </div>
+          <div>
+            <div class="brand-title">
+              CampusForum
+            </div>
+            <div class="brand-subtitle">
+              智慧校园社区
+            </div>
+          </div>
+        </div>
+        <button
+          class="mobile-close"
+          @click="toggleMobileMenu"
+        >
+          <n-icon size="20">
+            <CloseOutline />
+          </n-icon>
+        </button>
+      </div>
+
+      <div
+        v-if="authStore.user"
+        class="profile-card"
+        @click="navigate('/profile')"
+      >
+        <n-avatar
+          round
+          :size="52"
+          :src="authStore.user.avatarUrl"
+          :fallback-src="`https://api.dicebear.com/7.x/initials/svg?seed=${authStore.user.nickname}`"
+        />
+        <div class="profile-meta">
+          <strong>{{ authStore.user.nickname }}</strong>
+          <span>{{ authStore.user.email || '校园成员' }}</span>
+        </div>
       </div>
 
       <nav class="nav-menu">
-        <a 
-          v-for="link in navLinks" 
+        <button
+          v-for="link in navLinks"
           :key="link.path"
           class="nav-item"
           :class="{ active: route.path.startsWith(link.path) }"
-          @click="router.push(link.path)"
+          @click="navigate(link.path)"
         >
-          <n-icon size="22"><component :is="link.icon" /></n-icon>
+          <n-icon size="18">
+            <component :is="link.icon" />
+          </n-icon>
           <span>{{ link.name }}</span>
-        </a>
+        </button>
       </nav>
+
+      <div class="sidebar-bottom">
+        <button
+          class="cf-primary-btn publish-btn"
+          @click="navigate('/posts/new')"
+        >
+          发布新帖
+        </button>
+      </div>
     </aside>
 
-    <!-- Main Content Area -->
+    <div
+      v-if="mobileMenuVisible"
+      class="mobile-mask"
+      @click="toggleMobileMenu"
+    />
+
     <div class="content-wrapper">
-      <!-- Top Header -->
-      <header class="top-header glass-panel">
-        <div class="header-left">
-          <!-- Optional: page specific titles could go here -->
-        </div>
-        <div class="header-right">
-          <n-input 
-            round 
-            placeholder="搜索帖子、用户或空间" 
-            class="search-input"
-            @keyup.enter="(e) => handleSearch((e.target as HTMLInputElement).value)"
-          >
-            <template #prefix>
-              <n-icon><SearchOutline /></n-icon>
-            </template>
-          </n-input>
-          
+      <header class="top-header">
+        <div class="header-title-group">
           <button
-            class="icon-btn"
-            title="私信"
-            @click="router.push('/messages')"
+            class="mobile-menu-btn"
+            @click="toggleMobileMenu"
           >
             <n-icon size="20">
+              <MenuOutline />
+            </n-icon>
+          </button>
+          <div>
+            <h1 class="page-title">
+              {{ pageTitle }}
+            </h1>
+            <p class="page-subtitle">
+              保持高效、清爽、专注的校园交流体验
+            </p>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <n-input
+            v-model:value="searchKeyword"
+            round
+            placeholder="搜索帖子、用户或空间"
+            class="search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon>
+                <SearchOutline />
+              </n-icon>
+            </template>
+          </n-input>
+
+          <button
+            class="header-icon-btn"
+            title="私信"
+            @click="navigate('/messages')"
+          >
+            <n-icon size="18">
               <ChatbubblesOutline />
             </n-icon>
           </button>
-          
+
           <button
-            class="icon-btn"
+            class="header-icon-btn"
             title="通知"
-            @click="router.push('/notifications')"
+            @click="navigate('/notifications')"
           >
-            <n-icon size="20">
+            <n-icon size="18">
               <NotificationsOutline />
             </n-icon>
           </button>
 
-          <n-dropdown 
+          <n-dropdown
             v-if="authStore.user"
-            :options="userDropdownOptions" 
+            :options="userDropdownOptions"
             @select="handleDropdownSelect"
           >
-            <div class="user-profile">
-              <n-avatar 
-                round 
-                size="small" 
+            <div class="user-profile-trigger">
+              <n-avatar
+                round
+                size="small"
                 :src="authStore.user.avatarUrl"
-                :fallback-src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${authStore.user.nickname}`"
+                :fallback-src="`https://api.dicebear.com/7.x/initials/svg?seed=${authStore.user.nickname}`"
               />
-              <span class="user-name">{{ authStore.user.nickname }}</span>
+              <span>{{ authStore.user.nickname }}</span>
             </div>
           </n-dropdown>
         </div>
       </header>
 
-      <!-- Page Content -->
       <main class="page-content">
         <router-view v-slot="{ Component }">
           <transition
@@ -176,179 +278,314 @@ function handleSearch(query: string) {
 
 <style scoped lang="scss">
 .main-layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background: var(--cf-bg-base);
-  background-image: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 30%),
-                    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 30%);
-  overflow: hidden;
-}
-
-.glass-panel {
-  background: rgba(13, 17, 23, 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 100vh;
+  background: transparent;
 }
 
 .sidebar {
-  width: 240px;
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--cf-sidebar-width);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--cf-border);
   display: flex;
   flex-direction: column;
-  border-right-width: 1px;
-  z-index: 100;
-  
-  .logo-area {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 24px;
-    cursor: pointer;
-    
-    .logo-text {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--cf-text-primary);
-      letter-spacing: -0.5px;
-    }
-  }
-
-  .nav-menu {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      color: var(--cf-text-secondary);
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: var(--cf-text-primary);
-      }
-      
-      &.active {
-        background: rgba(99, 102, 241, 0.15);
-        color: var(--cf-primary);
-        box-shadow: inset 3px 0 0 var(--cf-primary);
-      }
-    }
-  }
+  padding: 20px;
+  z-index: 30;
 }
 
-.content-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.top-header {
-  height: 64px;
+.sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  border-bottom-width: 1px;
-  z-index: 90;
-  
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-left: auto;
-    
-    .search-input {
-      width: 240px;
-      background: rgba(255, 255, 255, 0.03);
-    }
-    
-    .icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--cf-text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: var(--cf-text-primary);
-        border-color: rgba(255, 255, 255, 0.1);
-      }
-    }
-    
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 4px 12px 4px 4px;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: background 0.3s;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.05);
-      }
-      
-      .user-name {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--cf-text-primary);
-      }
-    }
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cf-primary);
+  color: var(--cf-text-inverse);
+  box-shadow: 0 10px 24px rgba(0, 88, 190, 0.18);
+}
+
+.brand-title {
+  font-family: var(--cf-font-heading);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  color: var(--cf-text-muted);
+  font-size: 12px;
+}
+
+.mobile-close,
+.mobile-menu-btn,
+.header-icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mobile-close,
+.mobile-menu-btn {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+  color: var(--cf-text-secondary);
+}
+
+.profile-card {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--cf-bg-soft);
+  border: 1px solid rgba(194, 209, 234, 0.8);
+  cursor: pointer;
+}
+
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  strong {
+    font-size: 15px;
   }
+
+  span {
+    font-size: 12px;
+    color: var(--cf-text-muted);
+  }
+}
+
+.nav-menu {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.nav-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  color: var(--cf-text-secondary);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  font-weight: 600;
+}
+
+.nav-item:hover {
+  background: var(--cf-bg-soft);
+  color: var(--cf-text-primary);
+}
+
+.nav-item.active {
+  background: var(--cf-primary-soft);
+  color: var(--cf-primary);
+}
+
+.sidebar-bottom {
+  padding-top: 16px;
+}
+
+.publish-btn {
+  width: 100%;
+}
+
+.content-wrapper {
+  margin-left: var(--cf-sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--cf-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 24px;
+  background: rgba(248, 249, 255, 0.86);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(217, 226, 242, 0.85);
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.page-title {
+  margin: 0;
+  font-family: var(--cf-font-heading);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--cf-text-muted);
+  font-size: 13px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-input {
+  width: 280px;
+}
+
+.header-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--cf-bg-elevated);
+  border: 1px solid var(--cf-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cf-text-secondary);
+  transition: all 0.22s ease;
+}
+
+.header-icon-btn:hover,
+.mobile-close:hover,
+.mobile-menu-btn:hover {
+  background: var(--cf-bg-soft);
+  color: var(--cf-primary);
+}
+
+.user-profile-trigger {
+  height: 40px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  background: var(--cf-bg-elevated);
+  border: 1px solid var(--cf-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--cf-text-primary);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .page-content {
   flex: 1;
-  overflow-y: auto;
-  position: relative;
-  
-  /* Custom scrollbar for main content */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
+  padding: 24px;
+  overflow-x: hidden;
 }
 
-/* Page Transition Animations */
+.mobile-mask {
+  display: none;
+}
+
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
+.fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(8px);
+}
+
+:deep(.n-input .n-input__input-el),
+:deep(.n-input .n-input__placeholder) {
+  font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+  .search-input {
+    width: 220px;
+  }
+}
+
+@media (max-width: 960px) {
+  .mobile-menu-btn,
+  .mobile-close {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+    box-shadow: 0 20px 48px rgba(11, 28, 48, 0.12);
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .content-wrapper {
+    margin-left: 0;
+  }
+
+  .mobile-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 28, 48, 0.3);
+    z-index: 25;
+  }
+
+  .top-header {
+    padding: 0 16px;
+  }
+
+  .page-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-subtitle,
+  .user-profile-trigger span {
+    display: none;
+  }
+
+  .search-input {
+    display: none;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
 }
 </style>

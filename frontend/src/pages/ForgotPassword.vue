@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NInput, NCard, NForm, NFormItem, NSteps, NStep, useMessage } from 'naive-ui';
+import { NIcon, NInput, NStep, NSteps, useMessage } from 'naive-ui';
+import { KeyOutline, LockClosedOutline, MailOutline, RefreshOutline } from '@vicons/ionicons5';
 import { forgotPassword, resetPassword } from '@/api/auth';
 
 const router = useRouter();
@@ -14,19 +15,21 @@ const newPassword = ref('');
 const confirmPassword = ref('');
 const loading = ref(false);
 
+const stepTitle = computed(() => (step.value === 1 ? '验证账号身份' : '设置新密码'));
+
 function getErrorMessage(error: unknown): string {
   const err = error as { response?: { data?: { message?: string } } };
   return err.response?.data?.message || '重置失败';
 }
 
 async function handleSendCode() {
-  if (!email.value) {
+  if (!email.value.trim()) {
     message.warning('请输入邮箱');
     return;
   }
   loading.value = true;
   try {
-    const res = await forgotPassword(email.value);
+    const res = await forgotPassword(email.value.trim());
     token.value = res.token;
     message.success('重置令牌已生成');
     step.value = 2;
@@ -52,11 +55,11 @@ async function handleReset() {
   }
   loading.value = true;
   try {
-    await resetPassword(email.value, token.value, newPassword.value);
+    await resetPassword(email.value.trim(), token.value, newPassword.value);
     message.success('密码重置成功，请重新登录');
     router.push('/login');
-  } catch (e) {
-    message.error(getErrorMessage(e));
+  } catch (error) {
+    message.error(getErrorMessage(error));
   } finally {
     loading.value = false;
   }
@@ -65,90 +68,335 @@ async function handleReset() {
 
 <template>
   <div class="forgot-page">
-    <NCard
-      title="找回密码"
-      class="forgot-card"
-    >
-      <NSteps
-        :current="step"
-        style="margin-bottom: 24px;"
-      >
-        <NStep title="验证身份" />
-        <NStep title="重置密码" />
-      </NSteps>
+    <div class="forgot-shell">
+      <section class="forgot-visual cf-card">
+        <div class="forgot-visual-inner">
+          <span class="cf-pill">Account Recovery</span>
+          <h1>安全地找回你的校园账号</h1>
+          <p>
+            采用两步流程完成密码重置：先验证注册邮箱，再使用系统返回的令牌设置新密码，整个过程保持与新视觉系统一致。
+          </p>
 
-      <NForm v-if="step === 1">
-        <NFormItem label="注册邮箱">
-          <NInput
-            v-model:value="email"
-            placeholder="请输入注册时使用的邮箱"
-          />
-        </NFormItem>
-        <NButton
-          type="primary"
-          block
-          :loading="loading"
-          @click="handleSendCode"
-        >
-          获取重置令牌
-        </NButton>
-      </NForm>
+          <div class="visual-steps">
+            <div class="visual-step active">
+              <strong>01 验证邮箱</strong>
+              <span>确认你当前使用的注册邮箱，系统会返回重置令牌。</span>
+            </div>
+            <div class="visual-step" :class="{ active: step === 2 }">
+              <strong>02 设置新密码</strong>
+              <span>输入返回的令牌与新密码，完成账号恢复。</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <NForm v-else>
-        <NFormItem label="新密码">
-          <NInput
-            v-model:value="newPassword"
-            type="password"
-            placeholder="请输入新密码"
-          />
-        </NFormItem>
-        <NFormItem label="确认密码">
-          <NInput
-            v-model:value="confirmPassword"
-            type="password"
-            placeholder="请再次输入新密码"
-          />
-        </NFormItem>
-        <NButton
-          type="primary"
-          block
-          :loading="loading"
-          @click="handleReset"
-        >
-          重置密码
-        </NButton>
-        <NButton
-          text
-          block
-          style="margin-top: 8px;"
-          @click="step = 1"
-        >
-          返回上一步
-        </NButton>
-      </NForm>
+      <section class="forgot-panel cf-surface">
+        <div class="panel-head">
+          <h2>找回密码</h2>
+          <p>{{ stepTitle }}</p>
+        </div>
 
-      <div class="link-text">
-        <router-link to="/login">
-          返回登录
-        </router-link>
-      </div>
-    </NCard>
+        <NSteps
+          :current="step"
+          class="stepper"
+        >
+          <NStep title="验证身份" />
+          <NStep title="重置密码" />
+        </NSteps>
+
+        <div v-if="step === 1" class="form-area">
+          <div class="form-block">
+            <label>注册邮箱</label>
+            <n-input
+              v-model:value="email"
+              size="large"
+              placeholder="请输入注册时使用的邮箱"
+            >
+              <template #prefix>
+                <n-icon><MailOutline /></n-icon>
+              </template>
+            </n-input>
+          </div>
+
+          <button
+            class="cf-primary-btn submit-btn"
+            :disabled="loading"
+            @click="handleSendCode"
+          >
+            <n-icon size="16"><RefreshOutline /></n-icon>
+            {{ loading ? '提交中...' : '获取重置令牌' }}
+          </button>
+        </div>
+
+        <div v-else class="form-area">
+          <div class="form-block">
+            <label>重置令牌</label>
+            <n-input
+              v-model:value="token"
+              size="large"
+              placeholder="系统返回的 token"
+            >
+              <template #prefix>
+                <n-icon><KeyOutline /></n-icon>
+              </template>
+            </n-input>
+          </div>
+
+          <div class="form-block">
+            <label>新密码</label>
+            <n-input
+              v-model:value="newPassword"
+              type="password"
+              size="large"
+              placeholder="请输入新密码"
+              show-password-on="click"
+            >
+              <template #prefix>
+                <n-icon><LockClosedOutline /></n-icon>
+              </template>
+            </n-input>
+          </div>
+
+          <div class="form-block">
+            <label>确认密码</label>
+            <n-input
+              v-model:value="confirmPassword"
+              type="password"
+              size="large"
+              placeholder="请再次输入新密码"
+              show-password-on="click"
+            >
+              <template #prefix>
+                <n-icon><LockClosedOutline /></n-icon>
+              </template>
+            </n-input>
+          </div>
+
+          <div class="action-row">
+            <button
+              class="cf-secondary-btn"
+              @click="step = 1"
+            >
+              返回上一步
+            </button>
+            <button
+              class="cf-primary-btn"
+              :disabled="loading"
+              @click="handleReset"
+            >
+              {{ loading ? '重置中...' : '重置密码' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          想起密码了？
+          <button
+            class="text-link strong"
+            @click="router.push('/login')"
+          >
+            返回登录
+          </button>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .forgot-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
 }
-.forgot-card {
-  width: 400px;
+
+.forgot-shell {
+  width: min(1080px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 22px;
 }
-.link-text {
-  margin-top: 16px;
+
+.forgot-visual,
+.forgot-panel {
+  min-height: 680px;
+}
+
+.forgot-visual {
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(229, 238, 255, 0.82), rgba(255,255,255,0.98));
+}
+
+.forgot-visual-inner {
+  height: 100%;
+  padding: 32px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at top left, rgba(0, 88, 190, 0.14), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 22%),
+    linear-gradient(180deg, rgba(255,255,255,0.84), rgba(239,244,255,0.95));
+
+  h1 {
+    margin: 18px 0 12px;
+    font-family: var(--cf-font-heading);
+    font-size: clamp(40px, 4vw, 56px);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    margin: 0;
+    color: var(--cf-text-secondary);
+    line-height: 1.85;
+    font-size: 17px;
+  }
+}
+
+.visual-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.visual-step {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(217, 226, 242, 0.8);
+
+  strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 16px;
+  }
+
+  span {
+    color: var(--cf-text-muted);
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  &.active {
+    background: rgba(0, 88, 190, 0.08);
+    border-color: rgba(0, 88, 190, 0.18);
+  }
+}
+
+.forgot-panel {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.panel-head {
+  margin-bottom: 22px;
+
+  h2 {
+    margin: 0 0 8px;
+    font-family: var(--cf-font-heading);
+    font-size: 32px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--cf-text-secondary);
+  }
+}
+
+.stepper {
+  margin-bottom: 26px;
+}
+
+.form-area {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+.submit-btn {
+  width: 100%;
+  min-height: 48px;
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+
+  button {
+    flex: 1;
+  }
+}
+
+.footer-note {
+  margin-top: 20px;
   text-align: center;
+  color: var(--cf-text-secondary);
+  font-size: 14px;
+}
+
+.text-link {
+  border: none;
+  background: transparent;
+  color: var(--cf-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+
+  &.strong {
+    font-weight: 700;
+  }
+}
+
+:deep(.n-input),
+:deep(.n-step-indicator) {
+  --n-border-radius: 14px !important;
+}
+
+@media (max-width: 960px) {
+  .forgot-page {
+    padding: 16px;
+  }
+
+  .forgot-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .forgot-visual,
+  .forgot-panel {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .forgot-visual,
+  .forgot-panel {
+    padding: 20px;
+  }
+
+  .forgot-visual-inner {
+    padding: 22px;
+  }
+
+  .action-row {
+    flex-direction: column;
+  }
 }
 </style>

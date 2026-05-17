@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NInput, useMessage } from 'naive-ui';
+import { NIcon, NInput, useMessage } from 'naive-ui';
+import { ArrowForwardOutline, IdCardOutline, LockClosedOutline, MailOutline, PersonOutline, SchoolOutline } from '@vicons/ionicons5';
 import { register } from '@/api/auth';
-import campusHeroImg from '@/assets/images/campus_hero_3d.png';
 
 const router = useRouter();
 const message = useMessage();
@@ -15,157 +15,11 @@ const studentNo = ref('');
 const nickname = ref('');
 const loading = ref(false);
 
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-let animationFrameId: number;
-
-interface ParticleNode {
-  x: number;
-  y: number;
-  draw: () => void;
-  update: () => void;
-}
-
-onMounted(() => {
-  initParticles();
-});
-
-onUnmounted(() => {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-});
-
-function initParticles() {
-  const canvas = canvasRef.value;
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  let width = canvas.offsetWidth;
-  let height = canvas.offsetHeight;
-  canvas.width = width * window.devicePixelRatio;
-  canvas.height = height * window.devicePixelRatio;
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-  const particles: ParticleNode[] = [];
-  const particleCount = 80;
-  
-  let mouse = { x: width / 2, y: height / 2, radius: 150 };
-
-  canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-  });
-
-  class Particle {
-    x: number;
-    y: number;
-    size: number;
-    baseX: number;
-    baseY: number;
-    density: number;
-    color: string;
-
-    constructor(x: number, y: number) {
-      this.x = x;
-      this.y = y;
-      this.baseX = x;
-      this.baseY = y;
-      this.size = Math.random() * 2 + 1;
-      this.density = (Math.random() * 20) + 1;
-      
-      const colors = ['#6366f1', '#8b5cf6', '#38bdf8', '#c084fc'];
-      this.color = colors[Math.floor(Math.random() * colors.length)];
-    }
-
-    draw() {
-      if(!ctx) return;
-      ctx.fillStyle = this.color;
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    update() {
-      let dx = mouse.x - this.x;
-      let dy = mouse.y - this.y;
-      let distance = Math.sqrt(dx * dx + dy * dy);
-      let forceDirectionX = dx / distance;
-      let forceDirectionY = dy / distance;
-      let maxDistance = mouse.radius;
-      let force = (maxDistance - distance) / maxDistance;
-      let directionX = forceDirectionX * force * this.density;
-      let directionY = forceDirectionY * force * this.density;
-
-      if (distance < mouse.radius) {
-        this.x += directionX * 1.5;
-        this.y += directionY * 1.5;
-      } else {
-        if (this.x !== this.baseX) {
-          let dx = this.x - this.baseX;
-          this.x -= dx / 20;
-        }
-        if (this.y !== this.baseY) {
-          let dy = this.y - this.baseY;
-          this.y -= dy / 20;
-        }
-      }
-    }
-  }
-
-  function init() {
-    for (let i = 0; i < particleCount; i++) {
-      let x = Math.random() * width;
-      let y = Math.random() * height;
-      particles.push(new Particle(x, y));
-    }
-  }
-
-  function connect() {
-    if(!ctx) return;
-    for (let a = 0; a < particles.length; a++) {
-      for (let b = a; b < particles.length; b++) {
-        let dx = particles[a].x - particles[b].x;
-        let dy = particles[a].y - particles[b].y;
-        let distance = dx * dx + dy * dy;
-
-        if (distance < (width/7) * (height/7)) {
-          let opacity = 1 - (distance / 10000);
-          ctx.strokeStyle = `rgba(139, 92, 246, ${opacity * 0.5})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(particles[a].x, particles[a].y);
-          ctx.lineTo(particles[b].x, particles[b].y);
-          ctx.stroke();
-        }
-      }
-    }
-  }
-
-  function animate() {
-    if(!ctx) return;
-    ctx.clearRect(0, 0, width, height);
-    for (let i = 0; i < particles.length; i++) {
-      particles[i].update();
-      particles[i].draw();
-    }
-    connect();
-    animationFrameId = requestAnimationFrame(animate);
-  }
-
-  init();
-  animate();
-
-  window.addEventListener('resize', () => {
-    width = canvas.offsetWidth;
-    height = canvas.offsetHeight;
-    canvas.width = width * window.devicePixelRatio;
-    canvas.height = height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    particles.length = 0;
-    init();
-  });
-}
+const benefits = [
+  '在广场记录课程心得与校园见闻',
+  '加入学习空间，参与专题讨论与资料共享',
+  '开启打卡、积分、成就和 AI 学习辅助能力',
+];
 
 async function handleRegister() {
   if (!email.value || !password.value || !nickname.value) {
@@ -180,13 +34,14 @@ async function handleRegister() {
     message.warning('密码至少 6 位');
     return;
   }
+
   loading.value = true;
   try {
     await register({
-      email: email.value,
+      email: email.value.trim(),
       password: password.value,
-      studentNo: studentNo.value || undefined,
-      nickname: nickname.value,
+      studentNo: studentNo.value.trim() || undefined,
+      nickname: nickname.value.trim(),
     });
     message.success('注册成功，请登录');
     router.push('/login');
@@ -199,256 +54,378 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="login-layout">
-    <div class="left-panel">
-      <canvas
-        ref="canvasRef"
-        class="particle-canvas"
-      />
-      <div class="content-wrap">
-        <h1 class="brand">
-          CampusForum
-        </h1>
-        <h2 class="slogan">
-          开启学术宇宙的第一步
-        </h2>
-        <p class="desc">
-          注册账号，加入数万高校学子，分享知识，共同成长。
-        </p>
-        <img
-          :src="campusHeroImg"
-          class="hero-img"
-          alt="Campus 3D"
-        />
-      </div>
-      <div class="bg-decoration" />
-    </div>
-    <div class="right-panel">
-      <div class="login-box glass-card">
-        <h3 class="box-title">
-          创建账号 ✨
-        </h3>
-        <p class="box-subtitle">
-          只需几步，马上加入
-        </p>
+  <div class="auth-page register-page">
+    <div class="auth-shell">
+      <section class="auth-panel cf-surface">
+        <div class="panel-head">
+          <h2>创建账号</h2>
+          <p>填写基础信息，加入你的校园学习社区。</p>
+        </div>
 
-        <div class="form">
-          <div class="form-row">
-            <div class="form-group">
-              <label>昵称 <span class="req">*</span></label>
-              <n-input
-                v-model:value="nickname"
-                placeholder="取个好听的名字"
-              />
-            </div>
-            <div class="form-group">
-              <label>学号</label>
-              <n-input
-                v-model:value="studentNo"
-                placeholder="选填"
-              />
-            </div>
+        <div class="form-grid two-col">
+          <div class="form-block">
+            <label>昵称</label>
+            <n-input
+              v-model:value="nickname"
+              size="large"
+              placeholder="例如：数据结构补完计划"
+            >
+              <template #prefix>
+                <n-icon><PersonOutline /></n-icon>
+              </template>
+            </n-input>
           </div>
-          
-          <div class="form-group">
-            <label>邮箱 <span class="req">*</span></label>
+          <div class="form-block">
+            <label>学号</label>
+            <n-input
+              v-model:value="studentNo"
+              size="large"
+              placeholder="选填"
+            >
+              <template #prefix>
+                <n-icon><IdCardOutline /></n-icon>
+              </template>
+            </n-input>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-block">
+            <label>邮箱</label>
             <n-input
               v-model:value="email"
+              size="large"
               placeholder="name@college.edu"
-            />
+            >
+              <template #prefix>
+                <n-icon><MailOutline /></n-icon>
+              </template>
+            </n-input>
           </div>
-          <div class="form-group">
-            <label>密码 <span class="req">*</span></label>
+
+          <div class="form-block">
+            <label>密码</label>
             <n-input
               v-model:value="password"
               type="password"
+              size="large"
               placeholder="至少 6 位"
               show-password-on="click"
-            />
+            >
+              <template #prefix>
+                <n-icon><LockClosedOutline /></n-icon>
+              </template>
+            </n-input>
           </div>
-          <div class="form-group">
-            <label>确认密码 <span class="req">*</span></label>
+
+          <div class="form-block">
+            <label>确认密码</label>
             <n-input
               v-model:value="confirmPassword"
               type="password"
+              size="large"
               placeholder="再次输入密码"
               show-password-on="click"
-            />
+            >
+              <template #prefix>
+                <n-icon><LockClosedOutline /></n-icon>
+              </template>
+            </n-input>
           </div>
+        </div>
 
+        <button
+          class="cf-primary-btn submit-btn"
+          :disabled="loading"
+          @click="handleRegister"
+        >
+          <n-icon size="16">
+            <ArrowForwardOutline />
+          </n-icon>
+          {{ loading ? '提交中...' : '完成注册' }}
+        </button>
+
+        <div class="footer-note">
+          已经有账号？
           <button
-            class="neon-btn submit-btn"
-            :disabled="loading"
-            @click="handleRegister"
+            class="text-link strong"
+            @click="router.push('/login')"
           >
-            {{ loading ? '注册中...' : '注册' }}
+            去登录
           </button>
         </div>
+      </section>
 
-        <div class="register-prompt">
-          已有账号？ 
-          <span
-            class="link"
-            @click="router.push('/login')"
-          >去登录</span>
+      <section class="register-visual cf-card">
+        <div class="register-visual-inner">
+          <span class="cf-pill">Join Campus</span>
+          <h1>把你的学习轨迹，放进更好的社区里</h1>
+          <p>
+            通过统一而克制的页面风格，把注册流程也纳入同一套校园产品体验中，让首次进入平台更清晰、更可信。
+          </p>
+
+          <div class="benefit-list">
+            <div
+              v-for="item in benefits"
+              :key="item"
+              class="benefit-item"
+            >
+              <div class="benefit-icon">
+                <n-icon size="16"><SchoolOutline /></n-icon>
+              </div>
+              <span>{{ item }}</span>
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <h3>注册后你可以立即开始</h3>
+            <div class="preview-grid">
+              <div>
+                <strong>浏览广场</strong>
+                <span>查看校园热门讨论与观点</span>
+              </div>
+              <div>
+                <strong>加入部落</strong>
+                <span>进入课程、竞赛、科研协作空间</span>
+              </div>
+              <div>
+                <strong>使用 AI</strong>
+                <span>自动提炼帖子核心要点与结构</span>
+              </div>
+              <div>
+                <strong>积累成长</strong>
+                <span>通过打卡与积分形成长期正反馈</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-.login-layout {
-  display: flex;
-  height: 100vh;
-  background: var(--cf-bg-base);
-}
-
-.left-panel {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
+.auth-page {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(13, 17, 23, 1) 0%, rgba(30, 37, 48, 1) 100%);
-  
-  .bg-decoration {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.2), transparent 40%),
-                      radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.2), transparent 40%);
-    z-index: 1;
-    pointer-events: none;
+  padding: 32px;
+}
+
+.auth-shell {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: 460px minmax(0, 1fr);
+  gap: 22px;
+}
+
+.auth-panel,
+.register-visual {
+  min-height: 720px;
+}
+
+.auth-panel {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.panel-head {
+  margin-bottom: 24px;
+
+  h2 {
+    margin: 0 0 8px;
+    font-family: var(--cf-font-heading);
+    font-size: 32px;
   }
 
-  .particle-canvas {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 2;
-  }
-
-  .content-wrap {
-    position: relative;
-    z-index: 3;
-    text-align: center;
-    pointer-events: none;
-    max-width: 600px;
-    padding: 40px;
-
-    .brand {
-      font-size: 48px;
-      font-weight: 800;
-      margin: 0 0 16px;
-      background: var(--cf-gradient-primary);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .slogan {
-      font-size: 28px;
-      color: white;
-      margin: 0 0 16px;
-    }
-
-    .desc {
-      font-size: 16px;
-      color: var(--cf-text-secondary);
-      line-height: 1.6;
-      margin-bottom: 40px;
-    }
-
-    .hero-img {
-      width: 100%;
-      max-width: 500px;
-      animation: float 6s ease-in-out infinite;
-      filter: drop-shadow(0 20px 40px rgba(99, 102, 241, 0.2));
-    }
+  p {
+    margin: 0;
+    color: var(--cf-text-secondary);
   }
 }
 
-.right-panel {
-  width: 480px;
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+
+  &.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 18px;
+  }
+}
+
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+.submit-btn {
+  width: 100%;
+  margin-top: 24px;
+  min-height: 48px;
+}
+
+.footer-note {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--cf-text-secondary);
+  font-size: 14px;
+}
+
+.text-link {
+  border: none;
+  background: transparent;
+  color: var(--cf-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+
+  &.strong {
+    font-weight: 700;
+  }
+}
+
+.register-visual {
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(229, 238, 255, 0.8), rgba(255,255,255,0.98));
+}
+
+.register-visual-inner {
+  height: 100%;
+  border-radius: 24px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(0, 88, 190, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(255,255,255,0.82), rgba(239,244,255,0.95));
+
+  h1 {
+    margin: 18px 0 12px;
+    font-family: var(--cf-font-heading);
+    font-size: clamp(40px, 4vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    margin: 0;
+    max-width: 560px;
+    color: var(--cf-text-secondary);
+    line-height: 1.85;
+    font-size: 17px;
+  }
+}
+
+.benefit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 28px 0 24px;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(217, 226, 242, 0.8);
+  color: var(--cf-text-secondary);
+}
+
+.benefit-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 27, 34, 0.95);
-  border-left: 1px solid var(--cf-border);
+  background: rgba(16, 185, 129, 0.12);
+  color: #0f766e;
+}
 
-  .login-box {
-    width: 100%;
-    max-width: 380px;
-    padding: 32px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
+.preview-card {
+  margin-top: auto;
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.76);
+  border: 1px solid rgba(217, 226, 242, 0.8);
 
-    .box-title {
-      font-size: 24px;
-      color: white;
-      margin: 0 0 8px;
-    }
-
-    .box-subtitle {
-      color: var(--cf-text-secondary);
-      font-size: 14px;
-      margin: 0 0 24px;
-    }
-
-    .form {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-
-      .form-row {
-        display: flex;
-        gap: 12px;
-        .form-group { flex: 1; }
-      }
-
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        label {
-          font-size: 13px;
-          color: var(--cf-text-primary);
-          .req { color: var(--cf-error); }
-        }
-      }
-
-      .submit-btn {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-top: 8px;
-        
-        &:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-      }
-    }
-
-    .register-prompt {
-      margin-top: 24px;
-      text-align: center;
-      font-size: 14px;
-      color: var(--cf-text-secondary);
-      
-      .link {
-        color: var(--cf-primary);
-        cursor: pointer;
-        font-weight: 500;
-        &:hover { text-decoration: underline; }
-      }
-    }
+  h3 {
+    margin: 0 0 16px;
+    font-family: var(--cf-font-heading);
+    font-size: 24px;
   }
 }
 
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-15px); }
-  100% { transform: translateY(0px); }
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+
+  div {
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--cf-bg-soft);
+  }
+
+  strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  span {
+    color: var(--cf-text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+}
+
+:deep(.n-input) {
+  --n-border-radius: 14px !important;
+}
+
+@media (max-width: 960px) {
+  .auth-page {
+    padding: 16px;
+  }
+
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-panel,
+  .register-visual {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-panel,
+  .register-visual {
+    padding: 20px;
+  }
+
+  .register-visual-inner {
+    padding: 22px;
+  }
+
+  .form-grid.two-col,
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
