@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import type { Component } from 'vue';
 import { useRouter } from 'vue-router';
-import { NInput, NSpin, NEmpty, NIcon, NTag } from 'naive-ui';
+import { NInput, NSpin, NIcon } from 'naive-ui';
 import { search } from '@/api/search';
 import type { SearchResult } from '@/types/search';
 import { 
@@ -78,7 +79,7 @@ const typeTextColors: Record<string, string> = {
   RESOURCE: '#fbbf24', 
   SPACE: '#a78bfa' 
 };
-const typeIcons: Record<string, any> = {
+const typeIcons: Record<string, Component> = {
   POST: ChatbubblesOutline,
   USER: PersonOutline,
   RESOURCE: DocumentTextOutline,
@@ -90,7 +91,11 @@ const typeIcons: Record<string, any> = {
   <div class="search-layout">
     <div class="header-banner">
       <div class="banner-content">
-        <button class="action-btn back-btn" @click="router.back()" title="返回">
+        <button
+          class="action-btn back-btn"
+          title="返回"
+          @click="router.back()"
+        >
           <n-icon><ArrowBackOutline /></n-icon>
         </button>
         <h1 class="page-title gradient-text">
@@ -110,10 +115,20 @@ const typeIcons: Record<string, any> = {
           @keyup.enter="doSearch"
         >
           <template #prefix>
-            <n-icon size="20" color="#8b949e"><SearchOutline /></n-icon>
+            <n-icon
+              size="20"
+              color="#8b949e"
+            >
+              <SearchOutline />
+            </n-icon>
           </template>
           <template #suffix>
-            <button class="neon-btn search-btn" @click="doSearch">搜索</button>
+            <button
+              class="neon-btn search-btn"
+              @click="doSearch"
+            >
+              搜索
+            </button>
           </template>
         </n-input>
       </div>
@@ -126,24 +141,40 @@ const typeIcons: Record<string, any> = {
           :class="{ active: searchType === t.key }"
           @click="switchType(t.key)"
         >
-          <n-icon size="18"><component :is="t.icon" /></n-icon>
+          <n-icon size="18">
+            <component :is="t.icon" />
+          </n-icon>
           <span>{{ t.label }}</span>
         </div>
       </div>
 
       <div class="results-wrapper">
-        <div v-if="loading" class="loading-state">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
           <n-spin size="large" />
           <p>正在努力搜索中...</p>
         </div>
 
-        <div v-else-if="searched && results.length === 0" class="empty-state glass-card">
-          <n-icon size="64" color="#30363d"><SearchOutline /></n-icon>
+        <div
+          v-else-if="searched && results.length === 0"
+          class="empty-state glass-card"
+        >
+          <n-icon
+            size="64"
+            color="#30363d"
+          >
+            <SearchOutline />
+          </n-icon>
           <h3>未找到相关内容</h3>
           <p>换个关键词试试吧</p>
         </div>
 
-        <div v-else class="results-list">
+        <div
+          v-else
+          class="results-list"
+        >
           <div 
             v-for="r in results" 
             :key="`${r.type}-${r.id}`" 
@@ -156,33 +187,79 @@ const typeIcons: Record<string, any> = {
                   class="type-badge" 
                   :style="{ backgroundColor: typeColors[r.type] || 'rgba(255,255,255,0.1)', color: typeTextColors[r.type] || '#fff' }"
                 >
-                  <n-icon size="14" style="margin-right: 4px"><component :is="typeIcons[r.type] || GridOutline" /></n-icon>
+                  <n-icon
+                    size="14"
+                    style="margin-right: 4px"
+                  ><component :is="typeIcons[r.type] || GridOutline" /></n-icon>
                   {{ typeLabels[r.type] || r.type }}
                 </span>
-                <h3 class="result-title">{{ r.title }}</h3>
+                <h3 class="result-title">
+                  {{ r.title }}
+                </h3>
               </div>
             </div>
 
-            <p v-if="r.description" class="result-desc">{{ r.description }}</p>
+            <p
+              v-if="r.description"
+              class="result-desc"
+            >
+              {{ r.description }}
+            </p>
             
             <div class="card-footer">
               <div class="meta-list">
-                <span v-if="r.author" class="meta-item author">
+                <span
+                  v-if="r.author"
+                  class="meta-item author"
+                >
                   <div class="mini-avatar">{{ r.author.nickname?.charAt(0) || '匿' }}</div>
                   {{ r.author.nickname }}
                 </span>
-                <span v-if="r.createdAt" class="meta-item date">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
-                <span v-if="r.likeCount !== undefined" class="meta-item"><n-icon><HeartOutline/></n-icon> {{ r.likeCount }}</span>
-                <span v-if="r.commentCount !== undefined" class="meta-item"><n-icon><ChatbubblesOutline/></n-icon> {{ r.commentCount }}</span>
-                <span v-if="r.viewCount !== undefined" class="meta-item"><n-icon><EyeOutline/></n-icon> {{ r.viewCount }}</span>
-                <span v-if="r.downloadCount !== undefined" class="meta-item"><n-icon><CloudDownloadOutline/></n-icon> {{ r.downloadCount }}</span>
-                <span v-if="r.memberCount !== undefined" class="meta-item"><n-icon><PersonOutline/></n-icon> {{ r.memberCount }}</span>
-                <span v-if="r.postCount !== undefined" class="meta-item"><n-icon><DocumentTextOutline/></n-icon> {{ r.postCount }}</span>
-                <span v-if="r.fileSize" class="meta-item size">{{ formatSize(r.fileSize) }}</span>
+                <span
+                  v-if="r.createdAt"
+                  class="meta-item date"
+                >{{ new Date(r.createdAt).toLocaleDateString() }}</span>
+                <span
+                  v-if="r.likeCount !== undefined"
+                  class="meta-item"
+                ><n-icon><HeartOutline /></n-icon> {{ r.likeCount }}</span>
+                <span
+                  v-if="r.commentCount !== undefined"
+                  class="meta-item"
+                ><n-icon><ChatbubblesOutline /></n-icon> {{ r.commentCount }}</span>
+                <span
+                  v-if="r.viewCount !== undefined"
+                  class="meta-item"
+                ><n-icon><EyeOutline /></n-icon> {{ r.viewCount }}</span>
+                <span
+                  v-if="r.downloadCount !== undefined"
+                  class="meta-item"
+                ><n-icon><CloudDownloadOutline /></n-icon> {{ r.downloadCount }}</span>
+                <span
+                  v-if="r.memberCount !== undefined"
+                  class="meta-item"
+                ><n-icon><PersonOutline /></n-icon> {{ r.memberCount }}</span>
+                <span
+                  v-if="r.postCount !== undefined"
+                  class="meta-item"
+                ><n-icon><DocumentTextOutline /></n-icon> {{ r.postCount }}</span>
+                <span
+                  v-if="r.fileSize"
+                  class="meta-item size"
+                >{{ formatSize(r.fileSize) }}</span>
               </div>
-              <div class="tags" v-if="r.category || r.fileType">
-                <span v-if="r.category" class="info-tag">{{ r.category }}</span>
-                <span v-if="r.fileType" class="info-tag">{{ r.fileType }}</span>
+              <div
+                v-if="r.category || r.fileType"
+                class="tags"
+              >
+                <span
+                  v-if="r.category"
+                  class="info-tag"
+                >{{ r.category }}</span>
+                <span
+                  v-if="r.fileType"
+                  class="info-tag"
+                >{{ r.fileType }}</span>
               </div>
             </div>
           </div>

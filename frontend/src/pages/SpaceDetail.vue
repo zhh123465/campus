@@ -62,11 +62,21 @@ async function loadSpace() {
     members.value = await getSpaceMembers(id);
     posts.value = await getPosts({ scope: 'SPACE', limit: 10 });
   } catch {
-    // mock data for UI showcase
     space.value = {
-      id: 1, name: '计算机科学与技术', description: 'CS学习交流空间', category: 'MAJOR',
-      memberCount: 2341, postCount: 8712, ownerId: 1, visibility: 'PUBLIC'
-    } as any;
+      id: 1,
+      ownerId: 1,
+      owner: null,
+      name: '计算机科学与技术',
+      description: 'CS学习交流空间',
+      category: 'MAJOR',
+      visibility: 'PUBLIC',
+      memberCount: 2341,
+      postCount: 8712,
+      status: 1,
+      isMember: false,
+      memberRole: null,
+      createdAt: new Date().toISOString(),
+    };
   }
   loading.value = false;
 }
@@ -79,18 +89,42 @@ onMounted(loadSpace);
     <!-- Left Sidebar -->
     <aside class="sidebar">
       <div class="logo">
-        <n-icon size="24" color="#6366f1"><LibraryOutline /></n-icon>
+        <n-icon
+          size="24"
+          color="#6366f1"
+        >
+          <LibraryOutline />
+        </n-icon>
         <span>CampusForum</span>
       </div>
       <nav class="menu-list">
-        <template v-for="menu in sidebarMenus" :key="menu.label">
-          <div class="menu-item" :class="{ active: menu.active }" @click="router.push(menu.path)">
-            <n-icon size="20"><component :is="menu.icon" /></n-icon>
+        <template
+          v-for="menu in sidebarMenus"
+          :key="menu.label"
+        >
+          <div
+            class="menu-item"
+            :class="{ active: menu.active }"
+            @click="router.push(menu.path)"
+          >
+            <n-icon size="20">
+              <component :is="menu.icon" />
+            </n-icon>
             <span class="label">{{ menu.label }}</span>
-            <span v-if="menu.badge" class="badge">{{ menu.badge }}</span>
+            <span
+              v-if="menu.badge"
+              class="badge"
+            >{{ menu.badge }}</span>
           </div>
-          <div v-if="menu.children" class="submenu">
-            <div v-for="child in menu.children" :key="child" class="submenu-item">
+          <div
+            v-if="menu.children"
+            class="submenu"
+          >
+            <div
+              v-for="child in menu.children"
+              :key="child"
+              class="submenu-item"
+            >
               {{ child }}
             </div>
           </div>
@@ -103,54 +137,79 @@ onMounted(loadSpace);
       <!-- Top Header -->
       <header class="top-header">
         <div class="search-bar">
-          <n-icon size="18" color="#8b949e"><SearchOutline /></n-icon>
-          <input type="text" placeholder="搜索空间内容" />
+          <n-icon
+            size="18"
+            color="#8b949e"
+          >
+            <SearchOutline />
+          </n-icon>
+          <input
+            type="text"
+            placeholder="搜索空间内容"
+          />
         </div>
         <div class="header-actions">
-          <n-icon size="24"><NotificationsOutline /></n-icon>
-          <n-icon size="24"><MenuOutline /></n-icon>
-          <div class="avatar"></div>
+          <n-icon size="24">
+            <NotificationsOutline />
+          </n-icon>
+          <n-icon size="24">
+            <MenuOutline />
+          </n-icon>
+          <div class="avatar" />
         </div>
       </header>
 
       <div class="content-scroll">
         <template v-if="loading">
-          <div class="loading"><n-spin size="large" /></div>
+          <div class="loading">
+            <n-spin size="large" />
+          </div>
         </template>
         <template v-else-if="space">
           <div class="space-layout">
-            
             <!-- Center Column -->
             <div class="center-col">
               <!-- Space Banner -->
               <div class="space-banner glass-card">
-                <div class="banner-bg"></div>
+                <div class="banner-bg" />
                 <div class="banner-content">
                   <div class="space-icon">
-                    <n-icon size="36" color="#fff"><LibraryOutline /></n-icon>
+                    <n-icon
+                      size="36"
+                      color="#fff"
+                    >
+                      <LibraryOutline />
+                    </n-icon>
                   </div>
                   <div class="space-info">
                     <div class="title-row">
                       <h2>{{ space.name || '计算机科学与技术' }}</h2>
                       <span class="tag">公开空间</span>
                     </div>
-                    <p class="desc">CS学习交流空间</p>
+                    <p class="desc">
+                      CS学习交流空间
+                    </p>
                     <div class="stats">
                       成员 {{ space.memberCount || '2,341' }} <span class="dot">·</span> 
                       帖子 {{ space.postCount || '8,712' }} <span class="dot">·</span> 
                       今日活跃 342
                     </div>
                   </div>
-                  <button class="neon-btn header-btn">+ 发布帖子</button>
+                  <button class="neon-btn header-btn">
+                    + 发布帖子
+                  </button>
                 </div>
               </div>
 
               <!-- Tabs -->
               <div class="space-tabs">
-                <div v-for="tab in tabs" :key="tab" 
-                     class="tab-item" 
-                     :class="{ active: activeTab === tab }"
-                     @click="activeTab = tab">
+                <div
+                  v-for="tab in tabs"
+                  :key="tab" 
+                  class="tab-item" 
+                  :class="{ active: activeTab === tab }"
+                  @click="activeTab = tab"
+                >
                   {{ tab }}
                 </div>
               </div>
@@ -167,15 +226,21 @@ onMounted(loadSpace);
                 <!-- Mock Pinned Post -->
                 <div class="post-item glass-card">
                   <div class="post-author">
-                    <div class="avatar admin-avatar"></div>
+                    <div class="avatar admin-avatar" />
                     <div class="author-info">
                       <span class="name">代码骑士</span>
                       <span class="time">10 分钟前</span>
                     </div>
-                    <n-icon class="more-icon"><MenuOutline /></n-icon>
+                    <n-icon class="more-icon">
+                      <MenuOutline />
+                    </n-icon>
                   </div>
-                  <h3 class="post-title">求推荐系统学习操作系统的路线 <span class="tag blue">求助</span></h3>
-                  <p class="post-preview">我想深入学习操作系统原理，希望能推荐一些经典书籍、视频教程以及实验项目。最好能按照由浅入深的顺序，非常感谢大家！</p>
+                  <h3 class="post-title">
+                    求推荐系统学习操作系统的路线 <span class="tag blue">求助</span>
+                  </h3>
+                  <p class="post-preview">
+                    我想深入学习操作系统原理，希望能推荐一些经典书籍、视频教程以及实验项目。最好能按照由浅入深的顺序，非常感谢大家！
+                  </p>
                   <div class="post-actions">
                     <span class="action"><n-icon><ThumbsUpOutline /></n-icon> 12</span>
                     <span class="action"><n-icon><ChatboxOutline /></n-icon> 36</span>
@@ -186,14 +251,18 @@ onMounted(loadSpace);
                 <!-- Mock Post 2 -->
                 <div class="post-item glass-card">
                   <div class="post-author">
-                    <div class="avatar default-avatar"></div>
+                    <div class="avatar default-avatar" />
                     <div class="author-info">
                       <span class="name">算法小能手</span>
                       <span class="time">1 小时前</span>
                     </div>
                   </div>
-                  <h3 class="post-title">分享：图解操作系统进程调度算法 <span class="tag purple">分享</span></h3>
-                  <p class="post-preview">结合我最近复习整理的笔记，用图解的方式重新讲一遍 FCFS, SJF, RR 等调度算法的区别...</p>
+                  <h3 class="post-title">
+                    分享：图解操作系统进程调度算法 <span class="tag purple">分享</span>
+                  </h3>
+                  <p class="post-preview">
+                    结合我最近复习整理的笔记，用图解的方式重新讲一遍 FCFS, SJF, RR 等调度算法的区别...
+                  </p>
                   <div class="post-actions">
                     <span class="action"><n-icon><ThumbsUpOutline /></n-icon> 89</span>
                     <span class="action"><n-icon><ChatboxOutline /></n-icon> 45</span>
@@ -212,7 +281,9 @@ onMounted(loadSpace);
                 </div>
                 <div class="notice-content">
                   <p>欢迎加入计算机科学与技术空间！请遵守发帖规范，友善交流，共同进步！</p>
-                  <div class="date">2024-05-01</div>
+                  <div class="date">
+                    2024-05-01
+                  </div>
                 </div>
               </div>
 
@@ -228,29 +299,75 @@ onMounted(loadSpace);
                   </div>
                   <!-- CSS Simulated Chart -->
                   <div class="mock-chart">
-                    <svg viewBox="0 0 100 30" class="chart-svg">
-                      <path d="M0,20 L20,10 L40,25 L60,5 L80,15 L100,5" fill="none" stroke="#6366f1" stroke-width="2" />
-                      <circle cx="0" cy="20" r="2" fill="#6366f1" />
-                      <circle cx="20" cy="10" r="2" fill="#6366f1" />
-                      <circle cx="40" cy="25" r="2" fill="#6366f1" />
-                      <circle cx="60" cy="5" r="2" fill="#6366f1" />
-                      <circle cx="80" cy="15" r="2" fill="#6366f1" />
-                      <circle cx="100" cy="5" r="2" fill="#6366f1" />
+                    <svg
+                      viewBox="0 0 100 30"
+                      class="chart-svg"
+                    >
+                      <path
+                        d="M0,20 L20,10 L40,25 L60,5 L80,15 L100,5"
+                        fill="none"
+                        stroke="#6366f1"
+                        stroke-width="2"
+                      />
+                      <circle
+                        cx="0"
+                        cy="20"
+                        r="2"
+                        fill="#6366f1"
+                      />
+                      <circle
+                        cx="20"
+                        cy="10"
+                        r="2"
+                        fill="#6366f1"
+                      />
+                      <circle
+                        cx="40"
+                        cy="25"
+                        r="2"
+                        fill="#6366f1"
+                      />
+                      <circle
+                        cx="60"
+                        cy="5"
+                        r="2"
+                        fill="#6366f1"
+                      />
+                      <circle
+                        cx="80"
+                        cy="15"
+                        r="2"
+                        fill="#6366f1"
+                      />
+                      <circle
+                        cx="100"
+                        cy="5"
+                        r="2"
+                        fill="#6366f1"
+                      />
                     </svg>
                   </div>
                   <div class="data-row mt">
                     <span class="label">活跃成员</span>
                     <div class="members-avatars">
-                      <div class="avatar" style="background:#ef4444"></div>
-                      <div class="avatar" style="background:#3b82f6"></div>
-                      <div class="avatar" style="background:#10b981"></div>
+                      <div
+                        class="avatar"
+                        style="background:#ef4444"
+                      />
+                      <div
+                        class="avatar"
+                        style="background:#3b82f6"
+                      />
+                      <div
+                        class="avatar"
+                        style="background:#10b981"
+                      />
                       <span class="count">> 2,341</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
         </template>
       </div>

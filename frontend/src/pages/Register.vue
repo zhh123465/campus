@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NInput, useMessage } from 'naive-ui';
+import { NInput, useMessage } from 'naive-ui';
 import { register } from '@/api/auth';
 import campusHeroImg from '@/assets/images/campus_hero_3d.png';
 
@@ -17,6 +17,13 @@ const loading = ref(false);
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let animationFrameId: number;
+
+interface ParticleNode {
+  x: number;
+  y: number;
+  draw: () => void;
+  update: () => void;
+}
 
 onMounted(() => {
   initParticles();
@@ -38,7 +45,7 @@ function initParticles() {
   canvas.height = height * window.devicePixelRatio;
   ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-  const particles: any[] = [];
+  const particles: ParticleNode[] = [];
   const particleCount = 80;
   
   let mouse = { x: width / 2, y: height / 2, radius: 150 };
@@ -183,8 +190,8 @@ async function handleRegister() {
     });
     message.success('注册成功，请登录');
     router.push('/login');
-  } catch {
-    message.error('注册失败');
+  } catch (err: unknown) {
+    message.error(err instanceof Error ? err.message : '注册失败');
   } finally {
     loading.value = false;
   }
@@ -194,53 +201,96 @@ async function handleRegister() {
 <template>
   <div class="login-layout">
     <div class="left-panel">
-      <canvas ref="canvasRef" class="particle-canvas"></canvas>
+      <canvas
+        ref="canvasRef"
+        class="particle-canvas"
+      />
       <div class="content-wrap">
-        <h1 class="brand">CampusForum</h1>
-        <h2 class="slogan">开启学术宇宙的第一步</h2>
-        <p class="desc">注册账号，加入数万高校学子，分享知识，共同成长。</p>
-        <img :src="campusHeroImg" class="hero-img" alt="Campus 3D" />
+        <h1 class="brand">
+          CampusForum
+        </h1>
+        <h2 class="slogan">
+          开启学术宇宙的第一步
+        </h2>
+        <p class="desc">
+          注册账号，加入数万高校学子，分享知识，共同成长。
+        </p>
+        <img
+          :src="campusHeroImg"
+          class="hero-img"
+          alt="Campus 3D"
+        />
       </div>
-      <div class="bg-decoration"></div>
+      <div class="bg-decoration" />
     </div>
     <div class="right-panel">
       <div class="login-box glass-card">
-        <h3 class="box-title">创建账号 ✨</h3>
-        <p class="box-subtitle">只需几步，马上加入</p>
+        <h3 class="box-title">
+          创建账号 ✨
+        </h3>
+        <p class="box-subtitle">
+          只需几步，马上加入
+        </p>
 
         <div class="form">
           <div class="form-row">
             <div class="form-group">
               <label>昵称 <span class="req">*</span></label>
-              <n-input v-model:value="nickname" placeholder="取个好听的名字" />
+              <n-input
+                v-model:value="nickname"
+                placeholder="取个好听的名字"
+              />
             </div>
             <div class="form-group">
               <label>学号</label>
-              <n-input v-model:value="studentNo" placeholder="选填" />
+              <n-input
+                v-model:value="studentNo"
+                placeholder="选填"
+              />
             </div>
           </div>
           
           <div class="form-group">
             <label>邮箱 <span class="req">*</span></label>
-            <n-input v-model:value="email" placeholder="name@college.edu" />
+            <n-input
+              v-model:value="email"
+              placeholder="name@college.edu"
+            />
           </div>
           <div class="form-group">
             <label>密码 <span class="req">*</span></label>
-            <n-input v-model:value="password" type="password" placeholder="至少 6 位" show-password-on="click" />
+            <n-input
+              v-model:value="password"
+              type="password"
+              placeholder="至少 6 位"
+              show-password-on="click"
+            />
           </div>
           <div class="form-group">
             <label>确认密码 <span class="req">*</span></label>
-            <n-input v-model:value="confirmPassword" type="password" placeholder="再次输入密码" show-password-on="click" />
+            <n-input
+              v-model:value="confirmPassword"
+              type="password"
+              placeholder="再次输入密码"
+              show-password-on="click"
+            />
           </div>
 
-          <button class="neon-btn submit-btn" :disabled="loading" @click="handleRegister">
+          <button
+            class="neon-btn submit-btn"
+            :disabled="loading"
+            @click="handleRegister"
+          >
             {{ loading ? '注册中...' : '注册' }}
           </button>
         </div>
 
         <div class="register-prompt">
           已有账号？ 
-          <span class="link" @click="router.push('/login')">去登录</span>
+          <span
+            class="link"
+            @click="router.push('/login')"
+          >去登录</span>
         </div>
       </div>
     </div>

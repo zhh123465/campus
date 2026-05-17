@@ -81,10 +81,6 @@ function copySummary() {
 
 <template>
   <div class="ai-layout">
-    <header class="top-header">
-      <h2>AI 助手</h2>
-    </header>
-
     <div class="main-container">
       <aside class="sidebar glass-card">
         <div 
@@ -94,7 +90,12 @@ function copySummary() {
           :class="{ active: activeMenu === m.id }"
           @click="activeMenu = m.id"
         >
-          <n-icon size="18" style="margin-right: 8px;"><component :is="m.icon" /></n-icon>
+          <n-icon
+            size="18"
+            style="margin-right: 8px;"
+          >
+            <component :is="m.icon" />
+          </n-icon>
           {{ m.label }}
         </div>
       </aside>
@@ -109,7 +110,12 @@ function copySummary() {
           <div class="interaction-area">
             <div class="input-section glass-card">
               <div class="link-input-wrapper">
-                <n-icon size="20" class="link-icon"><LinkOutline /></n-icon>
+                <n-icon
+                  size="20"
+                  class="link-icon"
+                >
+                  <LinkOutline />
+                </n-icon>
                 <input 
                   v-model="inputLink" 
                   type="text" 
@@ -118,46 +124,89 @@ function copySummary() {
                 />
               </div>
               <div class="input-footer">
-                <p class="hint-text">支持粘贴完整链接或直接输入帖子 ID</p>
-                <button class="neon-btn" :disabled="summaryLoading" @click="generateSummary">
+                <p class="hint-text">
+                  支持粘贴完整链接或直接输入帖子 ID
+                </p>
+                <button
+                  class="neon-btn"
+                  :disabled="summaryLoading"
+                  @click="generateSummary"
+                >
                   {{ summaryLoading ? '分析中...' : '生成摘要' }}
                 </button>
               </div>
             </div>
             <div class="robot-illustration">
-              <img :src="aiRobotImg" alt="AI Robot" class="floating-robot" />
+              <img
+                :src="aiRobotImg"
+                alt="AI Robot"
+                class="floating-robot"
+              />
             </div>
           </div>
 
-          <div class="result-section" v-if="summaryResult || summaryLoading">
+          <div
+            v-if="summaryResult || summaryLoading"
+            class="result-section"
+          >
             <h4>分析结果</h4>
             <div class="example-card glass-card">
-              <div class="ex-content" v-if="summaryLoading">
+              <div
+                v-if="summaryLoading"
+                class="ex-content"
+              >
                 <div class="loading-state">
-                  <div class="ai-pulse"></div>
+                  <div class="ai-pulse" />
                   <p>AI 正在阅读帖子内容并提取关键信息...</p>
                 </div>
               </div>
-              <div class="ex-content" v-else>
+              <div
+                v-else
+                class="ex-content"
+              >
                 <h5>原文标题：{{ targetPost?.title || '无标题' }}</h5>
                 <div class="summary-box">
                   <span class="label">摘要：</span>
                   <p>{{ summaryResult }}</p>
                 </div>
-                <div class="tags" v-if="targetPost?.topics && targetPost.topics.length > 0">
-                  <span class="tag" v-for="t in targetPost.topics" :key="t">{{ t }}</span>
+                <div
+                  v-if="targetPost?.topics && targetPost.topics.length > 0"
+                  class="tags"
+                >
+                  <span
+                    v-for="t in targetPost.topics"
+                    :key="t"
+                    class="tag"
+                  >{{ t }}</span>
                 </div>
               </div>
-              <div class="ex-actions" v-if="!summaryLoading">
-                <span class="action" @click="copySummary"><n-icon><CopyOutline/></n-icon> 复制</span>
-                <span class="action" @click="generateSummary"><n-icon><RefreshOutline/></n-icon> 重新生成</span>
+              <div
+                v-if="!summaryLoading"
+                class="ex-actions"
+              >
+                <span
+                  class="action"
+                  @click="copySummary"
+                ><n-icon><CopyOutline /></n-icon> 复制</span>
+                <span
+                  class="action"
+                  @click="generateSummary"
+                ><n-icon><RefreshOutline /></n-icon> 重新生成</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else class="coming-soon">
-          <n-icon size="64" color="#30363d"><component :is="menus.find(m => m.id === activeMenu)?.icon" /></n-icon>
+        <div
+          v-else
+          class="coming-soon"
+        >
+          <n-icon
+            size="64"
+            color="#30363d"
+          >
+            <component :is="menus.find(m => m.id === activeMenu)?.icon" />
+          </n-icon>
           <h3>{{ menus.find(m => m.id === activeMenu)?.label }}</h3>
           <p>工程师们正在日夜兼程为您开发该功能，敬请期待...</p>
         </div>
@@ -168,25 +217,15 @@ function copySummary() {
 
 <style scoped lang="scss">
 .ai-layout {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--cf-bg-base);
+  background: transparent;
   color: var(--cf-text-primary);
   overflow: hidden;
-  background-image: radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.08), transparent 40%);
 }
 
-.top-header {
-  height: 60px;
-  padding: 0 32px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--cf-border);
-  background: rgba(13, 17, 23, 0.5);
-  backdrop-filter: blur(10px);
-  h2 { margin: 0; font-size: 18px; font-weight: 600; }
-}
+
 
 .main-container {
   flex: 1;

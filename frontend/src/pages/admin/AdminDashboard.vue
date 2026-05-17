@@ -47,13 +47,24 @@ const logs = [
   <div class="admin-layout">
     <aside class="admin-sidebar">
       <div class="logo">
-        <n-icon size="20" color="#6366f1"><LibraryOutline/></n-icon>
+        <n-icon
+          size="20"
+          color="#6366f1"
+        >
+          <LibraryOutline />
+        </n-icon>
         CampusForum <span class="badge">后台管理</span>
       </div>
       <nav class="menu">
-        <div v-for="m in menus" :key="m.label" 
-             class="menu-item" :class="{ active: m.active }">
-          <n-icon size="18"><component :is="m.icon" /></n-icon>
+        <div
+          v-for="m in menus"
+          :key="m.label" 
+          class="menu-item"
+          :class="{ active: m.active }"
+        >
+          <n-icon size="18">
+            <component :is="m.icon" />
+          </n-icon>
           {{ m.label }}
         </div>
       </nav>
@@ -61,11 +72,15 @@ const logs = [
 
     <main class="admin-content">
       <header class="top-bar">
-        <div class="title">工作台</div>
+        <div class="title">
+          工作台
+        </div>
         <div class="actions">
-          <n-icon size="20"><NotificationsOutline/></n-icon>
+          <n-icon size="20">
+            <NotificationsOutline />
+          </n-icon>
           <div class="admin-profile">
-            <div class="avatar"></div>
+            <div class="avatar" />
             <span>管理员</span>
           </div>
         </div>
@@ -74,16 +89,33 @@ const logs = [
       <div class="dashboard-grid">
         <!-- Stats Row -->
         <div class="stats-row">
-          <div v-for="stat in stats" :key="stat.label" class="glass-card stat-box">
-            <div class="label">{{ stat.label }}</div>
+          <div
+            v-for="stat in stats"
+            :key="stat.label"
+            class="glass-card stat-box"
+          >
+            <div class="label">
+              {{ stat.label }}
+            </div>
             <div class="value-row">
               <span class="value">{{ stat.value }}</span>
-              <span class="trend" :class="{ up: stat.isUp }">{{ stat.trend }}</span>
+              <span
+                class="trend"
+                :class="{ up: stat.isUp }"
+              >{{ stat.trend }}</span>
             </div>
             <!-- decorative sparkline -->
             <div class="sparkline">
-              <svg viewBox="0 0 100 20" class="chart-svg">
-                <path d="M0,15 L20,5 L40,10 L60,2 L80,8 L100,0" fill="none" :stroke="stat.isUp ? '#10b981' : '#ef4444'" stroke-width="2" />
+              <svg
+                viewBox="0 0 100 20"
+                class="chart-svg"
+              >
+                <path
+                  d="M0,15 L20,5 L40,10 L60,2 L80,8 L100,0"
+                  fill="none"
+                  :stroke="stat.isUp ? '#10b981' : '#ef4444'"
+                  stroke-width="2"
+                />
               </svg>
             </div>
           </div>
@@ -95,17 +127,44 @@ const logs = [
             <div class="card-header">
               <h3>数据趋势</h3>
               <div class="legend">
-                <span><span class="dot" style="background:#38bdf8"></span>用户数</span>
-                <span><span class="dot" style="background:#c084fc"></span>帖子数</span>
-                <span><span class="dot" style="background:#10b981"></span>活跃数</span>
+                <span><span
+                  class="dot"
+                  style="background:#38bdf8"
+                />用户数</span>
+                <span><span
+                  class="dot"
+                  style="background:#c084fc"
+                />帖子数</span>
+                <span><span
+                  class="dot"
+                  style="background:#10b981"
+                />活跃数</span>
               </div>
             </div>
             <div class="chart-area mock-line-chart">
               <!-- Mock Line Chart -->
-              <svg viewBox="0 0 100 40" class="full-svg">
-                <path d="M0,35 L20,25 L40,30 L60,10 L80,15 L100,5" fill="none" stroke="#38bdf8" stroke-width="1" />
-                <path d="M0,38 L20,35 L40,20 L60,25 L80,10 L100,15" fill="none" stroke="#c084fc" stroke-width="1" />
-                <path d="M0,39 L20,30 L40,35 L60,20 L80,5 L100,8" fill="none" stroke="#10b981" stroke-width="1" />
+              <svg
+                viewBox="0 0 100 40"
+                class="full-svg"
+              >
+                <path
+                  d="M0,35 L20,25 L40,30 L60,10 L80,15 L100,5"
+                  fill="none"
+                  stroke="#38bdf8"
+                  stroke-width="1"
+                />
+                <path
+                  d="M0,38 L20,35 L40,20 L60,25 L80,10 L100,15"
+                  fill="none"
+                  stroke="#c084fc"
+                  stroke-width="1"
+                />
+                <path
+                  d="M0,39 L20,30 L40,35 L60,20 L80,5 L100,8"
+                  fill="none"
+                  stroke="#10b981"
+                  stroke-width="1"
+                />
               </svg>
               <div class="x-axis">
                 <span>05-16</span><span>05-17</span><span>05-18</span><span>05-19</span><span>05-20</span><span>05-21</span>
@@ -125,10 +184,30 @@ const logs = [
                 </div>
               </div>
               <div class="pie-legend">
-                <div class="l-item"><span class="dot" style="background:#3b82f6"></span> Web <span class="pct">56.2%</span></div>
-                <div class="l-item"><span class="dot" style="background:#10b981"></span> Android <span class="pct">24.1%</span></div>
-                <div class="l-item"><span class="dot" style="background:#8b5cf6"></span> iOS <span class="pct">12.4%</span></div>
-                <div class="l-item"><span class="dot" style="background:#6b7280"></span> 其他 <span class="pct">7.3%</span></div>
+                <div class="l-item">
+                  <span
+                    class="dot"
+                    style="background:#3b82f6"
+                  /> Web <span class="pct">56.2%</span>
+                </div>
+                <div class="l-item">
+                  <span
+                    class="dot"
+                    style="background:#10b981"
+                  /> Android <span class="pct">24.1%</span>
+                </div>
+                <div class="l-item">
+                  <span
+                    class="dot"
+                    style="background:#8b5cf6"
+                  /> iOS <span class="pct">12.4%</span>
+                </div>
+                <div class="l-item">
+                  <span
+                    class="dot"
+                    style="background:#6b7280"
+                  /> 其他 <span class="pct">7.3%</span>
+                </div>
               </div>
             </div>
           </div>
@@ -141,13 +220,20 @@ const logs = [
               <h3>系统信息</h3>
             </div>
             <div class="sys-list">
-              <div v-for="sys in sysInfo" :key="sys.label" class="sys-item">
+              <div
+                v-for="sys in sysInfo"
+                :key="sys.label"
+                class="sys-item"
+              >
                 <div class="sys-label">
-                  <span><n-icon><HardwareChipOutline/></n-icon> {{ sys.label }}</span>
+                  <span><n-icon><HardwareChipOutline /></n-icon> {{ sys.label }}</span>
                   <span>{{ sys.percent }}%</span>
                 </div>
                 <div class="progress-bar">
-                  <div class="fill" :style="{ width: sys.percent + '%', backgroundColor: sys.color }"></div>
+                  <div
+                    class="fill"
+                    :style="{ width: sys.percent + '%', backgroundColor: sys.color }"
+                  />
                 </div>
               </div>
             </div>
@@ -159,14 +245,20 @@ const logs = [
               <span class="more">更多 ></span>
             </div>
             <div class="log-list">
-              <div v-for="(log, idx) in logs" :key="idx" class="log-item">
+              <div
+                v-for="(log, idx) in logs"
+                :key="idx"
+                class="log-item"
+              >
                 <div class="log-icon">
-                  <div class="avatar-small"></div>
+                  <div class="avatar-small" />
                 </div>
                 <div class="log-content">
                   <p><span class="user">{{ log.user }}</span> {{ log.action }}</p>
                 </div>
-                <div class="log-time">{{ log.time }}</div>
+                <div class="log-time">
+                  {{ log.time }}
+                </div>
               </div>
             </div>
           </div>

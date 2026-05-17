@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, h, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NLayout, NLayoutSider, NLayoutContent, NMenu, NButton, NStatistic } from 'naive-ui';
+import { NLayout, NLayoutSider, NLayoutContent, NMenu, NButton } from 'naive-ui';
 import { renderIcon } from '@/utils/render-icon';
 import {
   GridOutline, PeopleOutline, DocumentTextOutline,
@@ -9,8 +9,6 @@ import {
   SchoolOutline, SettingsOutline, ArrowBackOutline,
 } from '@vicons/ionicons5';
 import type { MenuOption } from 'naive-ui';
-import type { Component } from 'vue';
-import { getUnreadCount } from '@/api/notifications';
 
 const route = useRoute();
 const router = useRouter();
@@ -49,7 +47,10 @@ function handleMenuClick(key: string) {
 </script>
 
 <template>
-  <NLayout style="min-height: 100vh;" has-sider>
+  <NLayout
+    style="min-height: 100vh;"
+    has-sider
+  >
     <NLayoutSider
       bordered
       collapse-mode="width"
@@ -59,7 +60,11 @@ function handleMenuClick(key: string) {
       @update:collapsed="collapsed = $event"
     >
       <div style="padding: 16px 12px 8px; display: flex; justify-content: flex-end;">
-        <NButton text size="small" @click="collapsed = !collapsed">
+        <NButton
+          text
+          size="small"
+          @click="collapsed = !collapsed"
+        >
           {{ collapsed ? '▶' : '◀' }}
         </NButton>
       </div>

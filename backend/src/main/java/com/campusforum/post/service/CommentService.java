@@ -6,10 +6,13 @@ import com.campusforum.common.ErrorCode;
 import com.campusforum.achievement.service.AchievementService;
 import com.campusforum.notify.service.NotifyService;
 import com.campusforum.post.domain.Comment;
+import com.campusforum.post.domain.Reaction;
 import com.campusforum.post.dto.CommentVO;
 import com.campusforum.post.dto.CreateCommentRequest;
+import com.campusforum.post.dto.ReactionRequest;
 import com.campusforum.post.mapper.CommentMapper;
 import com.campusforum.post.mapper.PostMapper;
+import com.campusforum.post.mapper.ReactionMapper;
 import com.campusforum.qa.domain.QaQuestion;
 import com.campusforum.qa.mapper.QaQuestionMapper;
 import com.campusforum.user.domain.User;
@@ -38,6 +41,7 @@ public class CommentService {
     private final NotifyService notifyService;
     private final AchievementService achievementService;
     private final QaQuestionMapper qaQuestionMapper;
+    private final ReactionMapper reactionMapper;
 
     @Transactional
     public CommentVO create(Long userId, CreateCommentRequest req) {
@@ -190,6 +194,49 @@ public class CommentService {
 
         commentMapper.deleteById(commentId);
         log.info("Comment deleted: id={}", commentId);
+    }
+
+    @Transactional
+    public boolean toggleReaction(Long userId, Long commentId, ReactionRequest req) {
+        if (!"LIKE".equals(req.getType())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null || comment.getDeleted() == 1 || comment.getStatus() != 1) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        LambdaQueryWrapper<Reaction> qw = new LambdaQueryWrapper<>();
+        qw.eq(Reaction::getUserId, userId)
+                .eq(Reaction::getTargetType, "COMMENT")
+                .eq(Reaction::getTargetId, commentId)
+                .eq(Reaction::getType, req.getType());
+
+        Reaction existing = reactionMapper.selectOne(qw);
+        if (existing != null) {
+            reactionMapper.deleteById(existing.getId());
+            comment.setLikeCount(Math.max(0, comment.getLikeCount() - 1));
+            commentMapper.updateById(comment);
+            return false;
+        }
+
+        Reaction reaction = new Reaction();
+        reaction.setUserId(userId);
+        reaction.setTargetType("COMMENT");
+        reaction.setTargetId(commentId);
+        reaction.setType(req.getType());
+        reactionMapper.insert(reaction);
+
+        comment.setLikeCount(comment.getLikeCount() + 1);
+        commentMapper.updateById(comment);
+
+        User liker = userMapper.selectById(userId);
+        String likerName = liker != null ? liker.getNickname() : "有人";
+        notifyService.create(comment.getAuthorId(), userId, "LIKE",
+                "点赞通知", likerName + " 赞了你的评论", "/posts/" + comment.getPostId());
+
+        return true;
     }
 
     private CommentVO toVO(Comment comment) {

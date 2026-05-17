@@ -17,6 +17,13 @@ const loading = ref(false);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let animationFrameId: number;
 
+interface ParticleNode {
+  x: number;
+  y: number;
+  draw: () => void;
+  update: () => void;
+}
+
 onMounted(() => {
   initParticles();
 });
@@ -37,7 +44,7 @@ function initParticles() {
   canvas.height = height * window.devicePixelRatio;
   ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-  const particles: any[] = [];
+  const particles: ParticleNode[] = [];
   const particleCount = 80;
   
   let mouse = { x: width / 2, y: height / 2, radius: 150 };
@@ -183,42 +190,82 @@ async function handleLogin() {
 <template>
   <div class="login-layout">
     <div class="left-panel">
-      <canvas ref="canvasRef" class="particle-canvas"></canvas>
+      <canvas
+        ref="canvasRef"
+        class="particle-canvas"
+      />
       <div class="content-wrap">
-        <h1 class="brand">CampusForum</h1>
-        <h2 class="slogan">探索全新的学术元宇宙</h2>
-        <p class="desc">连接数万高校学子，分享知识，共同成长。开启你的数字校园生活。</p>
-        <img :src="campusHeroImg" class="hero-img" alt="Campus 3D" />
+        <h1 class="brand">
+          CampusForum
+        </h1>
+        <h2 class="slogan">
+          探索全新的学术元宇宙
+        </h2>
+        <p class="desc">
+          连接数万高校学子，分享知识，共同成长。开启你的数字校园生活。
+        </p>
+        <img
+          :src="campusHeroImg"
+          class="hero-img"
+          alt="Campus 3D"
+        />
       </div>
-      <div class="bg-decoration"></div>
+      <div class="bg-decoration" />
     </div>
     <div class="right-panel">
       <div class="login-box glass-card">
-        <h3 class="box-title">欢迎回来 👋</h3>
-        <p class="box-subtitle">请输入您的账号密码登录</p>
+        <h3 class="box-title">
+          欢迎回来 👋
+        </h3>
+        <p class="box-subtitle">
+          请输入您的账号密码登录
+        </p>
 
         <div class="form">
           <div class="form-group">
             <label>邮箱</label>
-            <n-input v-model:value="email" size="large" placeholder="name@college.edu" />
+            <n-input
+              v-model:value="email"
+              size="large"
+              placeholder="name@college.edu"
+            />
           </div>
           <div class="form-group">
             <label>密码</label>
-            <n-input v-model:value="password" type="password" size="large" placeholder="••••••••" show-password-on="click" />
+            <n-input
+              v-model:value="password"
+              type="password"
+              size="large"
+              placeholder="••••••••"
+              show-password-on="click"
+            />
           </div>
           
           <div class="forgot-row">
-            <n-button text color="#8b949e" @click="router.push('/forgot-password')">忘记密码？</n-button>
+            <n-button
+              text
+              color="#8b949e"
+              @click="router.push('/forgot-password')"
+            >
+              忘记密码？
+            </n-button>
           </div>
 
-          <button class="neon-btn submit-btn" :disabled="loading" @click="handleLogin">
+          <button
+            class="neon-btn submit-btn"
+            :disabled="loading"
+            @click="handleLogin"
+          >
             {{ loading ? '登录中...' : '登录' }}
           </button>
         </div>
 
         <div class="register-prompt">
           还没有账号？ 
-          <span class="link" @click="router.push('/register')">立即注册</span>
+          <span
+            class="link"
+            @click="router.push('/register')"
+          >立即注册</span>
         </div>
       </div>
     </div>

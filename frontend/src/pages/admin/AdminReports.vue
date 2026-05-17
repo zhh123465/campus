@@ -159,7 +159,10 @@ onMounted(() => loadReports(true));
 </script>
 
 <template>
-  <div class="admin-reports" @scroll="scrollToListEnd">
+  <div
+    class="admin-reports"
+    @scroll="scrollToListEnd"
+  >
     <div class="page-header">
       <h2>举报管理</h2>
     </div>
@@ -181,22 +184,40 @@ onMounted(() => loadReports(true));
       />
     </NSpace>
 
-    <NSpace v-if="checkedRowKeys.length" style="margin-bottom: 12px;">
+    <NSpace
+      v-if="checkedRowKeys.length"
+      style="margin-bottom: 12px;"
+    >
       <span>已选 {{ checkedRowKeys.length }} 项</span>
-      <NButton size="small" type="success" @click="batchHandle(1)">批量处理</NButton>
-      <NButton size="small" type="error" @click="batchHandle(2)">批量驳回</NButton>
+      <NButton
+        size="small"
+        type="success"
+        @click="batchHandle(1)"
+      >
+        批量处理
+      </NButton>
+      <NButton
+        size="small"
+        type="error"
+        @click="batchHandle(2)"
+      >
+        批量驳回
+      </NButton>
     </NSpace>
 
     <NDataTable
+      v-model:checked-row-keys="checkedRowKeys"
       :columns="columns"
       :data="reports"
       :loading="loading"
       :bordered="false"
       :row-key="(row: ReportVO) => row.id"
-      v-model:checked-row-keys="checkedRowKeys"
     />
 
-    <NModal v-model:show="handleModalShow" title="处理举报">
+    <NModal
+      v-model:show="handleModalShow"
+      title="处理举报"
+    >
       <div style="padding: 16px; width: 400px;">
         <NInput
           v-model:value="handleNote"
@@ -205,8 +226,15 @@ onMounted(() => loadReports(true));
           :autosize="{ minRows: 3, maxRows: 6 }"
         />
         <NSpace style="margin-top: 16px; justify-content: flex-end;">
-          <NButton @click="handleModalShow = false">取消</NButton>
-          <NButton type="primary" @click="confirmHandle">确认</NButton>
+          <NButton @click="handleModalShow = false">
+            取消
+          </NButton>
+          <NButton
+            type="primary"
+            @click="confirmHandle"
+          >
+            确认
+          </NButton>
         </NSpace>
       </div>
     </NModal>

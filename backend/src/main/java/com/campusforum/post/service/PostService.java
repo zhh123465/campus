@@ -152,14 +152,21 @@ public class PostService {
         if ("follow".equals(req.getSort())) {
             if (currentUserId == null) return List.of();
             List<Long> followingIds = followService.getFollowingIds(currentUserId);
+            if (req.getAuthorId() != null) {
+                // 个人主页复用关注流排序时，只保留目标作者与当前用户关注列表的交集。
+                followingIds = followingIds.stream()
+                        .filter(req.getAuthorId()::equals)
+                        .toList();
+            }
             if (followingIds.isEmpty()) return List.of();
 
             LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
             qw.eq(Post::getScope, req.getScope());
             qw.eq(Post::getStatus, 1);
             qw.in(Post::getAuthorId, followingIds);
-            if (req.getCursor() != null) {
-                qw.lt(Post::getId, req.getCursor());
+            Long idCursor = req.getCursorId() != null ? req.getCursorId() : req.getCursor();
+            if (idCursor != null) {
+                qw.lt(Post::getId, idCursor);
             }
             qw.orderByDesc(Post::getId);
             qw.last("LIMIT " + limit);
@@ -170,28 +177,31 @@ public class PostService {
         LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
         qw.eq(Post::getScope, req.getScope());
         qw.eq(Post::getStatus, 1);
+        if (req.getAuthorId() != null) {
+            qw.eq(Post::getAuthorId, req.getAuthorId());
+        }
 
-        if (req.getCursor() != null) {
-            if ("trending".equals(req.getSort())) {
-                qw.lt(Post::getLikeCount, req.getCursor());
-                qw.orderByDesc(Post::getLikeCount, Post::getId);
-            } else if ("essence".equals(req.getSort())) {
-                qw.eq(Post::getIsEssence, 1);
-                qw.lt(Post::getId, req.getCursor());
-                qw.orderByDesc(Post::getId);
-            } else {
-                qw.lt(Post::getId, req.getCursor());
-                qw.orderByDesc(Post::getId);
+        if ("trending".equals(req.getSort())) {
+            if (req.getCursor() != null) {
+                if (req.getCursorId() != null) {
+                    qw.and(w -> w.lt(Post::getCommentCount, req.getCursor())
+                            .or(x -> x.eq(Post::getCommentCount, req.getCursor())
+                                    .lt(Post::getId, req.getCursorId())));
+                } else {
+                    qw.lt(Post::getCommentCount, req.getCursor());
+                }
             }
+            qw.orderByDesc(Post::getCommentCount, Post::getId);
+        } else if ("essence".equals(req.getSort())) {
+            // 精华推荐：展示点赞最多的前十个帖子
+            qw.orderByDesc(Post::getLikeCount, Post::getId);
+            limit = 10;
         } else {
-            if ("trending".equals(req.getSort())) {
-                qw.orderByDesc(Post::getLikeCount, Post::getId);
-            } else if ("essence".equals(req.getSort())) {
-                qw.eq(Post::getIsEssence, 1);
-                qw.orderByDesc(Post::getId);
-            } else {
-                qw.orderByDesc(Post::getId);
+            Long idCursor = req.getCursorId() != null ? req.getCursorId() : req.getCursor();
+            if (idCursor != null) {
+                qw.lt(Post::getId, idCursor);
             }
+            qw.orderByDesc(Post::getId);
         }
 
         qw.last("LIMIT " + limit);

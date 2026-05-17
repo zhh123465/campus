@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NSpin, NEmpty, NIcon } from 'naive-ui';
+import { NSpin, NIcon } from 'naive-ui';
 import { 
   ArrowBackOutline,
   StarOutline,
@@ -79,11 +79,20 @@ function getTypeIcon(type: string): Component {
   <div class="points-layout">
     <div class="header-banner">
       <div class="banner-content">
-        <button class="action-btn back-btn" @click="router.back()" title="返回">
+        <button
+          class="action-btn back-btn"
+          title="返回"
+          @click="router.back()"
+        >
           <n-icon><ArrowBackOutline /></n-icon>
         </button>
         <h1 class="page-title gradient-text">
-          <n-icon size="32" class="title-icon"><TrophyOutline /></n-icon>
+          <n-icon
+            size="32"
+            class="title-icon"
+          >
+            <TrophyOutline />
+          </n-icon>
           我的积分
         </h1>
       </div>
@@ -92,7 +101,9 @@ function getTypeIcon(type: string): Component {
     <div class="main-container">
       <div class="balance-card glass-card">
         <div class="balance-content">
-          <div class="balance-label">当前可用积分</div>
+          <div class="balance-label">
+            当前可用积分
+          </div>
           <div class="balance-num">
             <span class="num">{{ balance }}</span>
             <span class="currency">PT</span>
@@ -108,25 +119,45 @@ function getTypeIcon(type: string): Component {
           <h3>积分明细</h3>
         </div>
 
-        <div v-if="loading" class="loading-state">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
           <n-spin size="large" />
           <p>加载中...</p>
         </div>
 
-        <div v-else-if="logs.length === 0" class="empty-state">
-          <n-icon size="64" color="#30363d"><StarOutline /></n-icon>
+        <div
+          v-else-if="logs.length === 0"
+          class="empty-state"
+        >
+          <n-icon
+            size="64"
+            color="#30363d"
+          >
+            <StarOutline />
+          </n-icon>
           <h3>暂无记录</h3>
           <p>多参与社区互动赚取积分吧</p>
         </div>
 
-        <div v-else class="logs-list">
-          <div v-for="entry in logs" :key="entry.id" class="log-item">
+        <div
+          v-else
+          class="logs-list"
+        >
+          <div
+            v-for="entry in logs"
+            :key="entry.id"
+            class="log-item"
+          >
             <div class="log-left">
               <div 
                 class="log-icon-wrap" 
                 :style="{ backgroundColor: typeBgColors[entry.type] || 'rgba(255,255,255,0.1)', color: typeColors[entry.type] || '#fff' }"
               >
-                <n-icon size="20"><component :is="getTypeIcon(entry.type)" /></n-icon>
+                <n-icon size="20">
+                  <component :is="getTypeIcon(entry.type)" />
+                </n-icon>
               </div>
               <div class="log-info">
                 <span class="log-title">{{ typeLabels[entry.type] || entry.type }}</span>
@@ -134,7 +165,10 @@ function getTypeIcon(type: string): Component {
               </div>
             </div>
             <div class="log-right">
-              <div class="amount-wrap" :class="entry.amount > 0 ? 'positive' : 'negative'">
+              <div
+                class="amount-wrap"
+                :class="entry.amount > 0 ? 'positive' : 'negative'"
+              >
                 <n-icon size="14">
                   <TrendingUpOutline v-if="entry.amount > 0" />
                   <TrendingDownOutline v-else />

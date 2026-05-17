@@ -46,17 +46,38 @@ function cancel() {
     <NCard title="创建打卡挑战">
       <div class="form">
         <label>挑战名称</label>
-        <NInput v-model:value="name" placeholder="例如：每日背单词" maxlength="64" />
+        <NInput
+          v-model:value="name"
+          placeholder="例如：每日背单词"
+          maxlength="64"
+        />
 
         <label>简介</label>
-        <NInput v-model:value="description" type="textarea" placeholder="简单描述一下挑战规则..." maxlength="500" />
+        <NInput
+          v-model:value="description"
+          type="textarea"
+          placeholder="简单描述一下挑战规则..."
+          maxlength="500"
+        />
 
         <label>日期范围</label>
-        <NDatePicker v-model:value="range" type="daterange" :is-date-disabled="(ts: number) => ts < Date.now() - 86400000" />
+        <NDatePicker
+          v-model:value="range"
+          type="daterange"
+          :is-date-disabled="(ts: number) => ts < Date.now() - 86400000"
+        />
 
         <div class="actions">
-          <NButton type="primary" :loading="loading" @click="submit">创建</NButton>
-          <NButton @click="cancel">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="loading"
+            @click="submit"
+          >
+            创建
+          </NButton>
+          <NButton @click="cancel">
+            取消
+          </NButton>
         </div>
       </div>
     </NCard>

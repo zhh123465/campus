@@ -1,7 +1,7 @@
 package com.campusforum.post.service;
 
 import com.campusforum.common.BusinessException;
-import com.campusforum.common.ErrorCode;
+import com.campusforum.post.dto.CreateCommentRequest;
 import com.campusforum.post.dto.CreatePostRequest;
 import com.campusforum.post.dto.PostPageRequest;
 import com.campusforum.post.dto.PostVO;
@@ -22,6 +22,9 @@ class PostServiceTest {
 
     @Autowired
     private PostService postService;
+
+    @Autowired
+    private CommentService commentService;
 
     @Autowired
     private UserService userService;
@@ -101,8 +104,80 @@ class PostServiceTest {
     }
 
     @Test
+    void shouldPagePostsByAuthorId() {
+        CreatePostRequest ownReq = new CreatePostRequest();
+        ownReq.setTitle("目标作者帖子");
+        ownReq.setContent("只应该看到这位作者发布的内容");
+        PostVO ownPost = postService.create(authorId, ownReq);
+
+        RegisterRequest otherUserReq = new RegisterRequest();
+        otherUserReq.setEmail("other-post-author" + System.currentTimeMillis() + "@campusforum.com");
+        otherUserReq.setPassword("Test123456");
+        otherUserReq.setNickname("其他作者");
+        Long otherAuthorId = userService.register(otherUserReq).getId();
+
+        CreatePostRequest otherReq = new CreatePostRequest();
+        otherReq.setTitle("其他作者帖子");
+        otherReq.setContent("这个帖子不能出现在目标作者主页");
+        postService.create(otherAuthorId, otherReq);
+
+        PostPageRequest pageReq = new PostPageRequest();
+        pageReq.setAuthorId(authorId);
+        pageReq.setLimit(20);
+
+        List<PostVO> posts = postService.page(pageReq);
+
+        assertThat(posts)
+                .isNotEmpty()
+                .allMatch(post -> post.getAuthorId().equals(authorId));
+        assertThat(posts).extracting(PostVO::getId).contains(ownPost.getId());
+    }
+
+    @Test
     void shouldThrowWhenPostNotFound() {
         assertThatThrownBy(() -> postService.getById(999999L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void shouldPageTrendingPostsWithCursorAndCursorId() {
+        createPostWithComments("热门 1", 3);
+        createPostWithComments("热门 2", 3);
+        createPostWithComments("热门 3", 1);
+
+        PostPageRequest firstPage = new PostPageRequest();
+        firstPage.setSort("trending");
+        firstPage.setLimit(2);
+        List<PostVO> trending = postService.page(firstPage);
+
+        assertThat(trending).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(trending.get(0).getCommentCount()).isGreaterThanOrEqualTo(trending.get(1).getCommentCount());
+
+        PostVO last = trending.get(1);
+        PostPageRequest secondPage = new PostPageRequest();
+        secondPage.setSort("trending");
+        secondPage.setLimit(10);
+        secondPage.setCursor((long) last.getCommentCount());
+        secondPage.setCursorId(last.getId());
+
+        List<PostVO> next = postService.page(secondPage);
+        assertThat(next).allMatch(p -> p.getCommentCount() < last.getCommentCount()
+                || (p.getCommentCount().equals(last.getCommentCount()) && p.getId() < last.getId()));
+    }
+
+    private PostVO createPostWithComments(String title, int comments) {
+        CreatePostRequest req = new CreatePostRequest();
+        req.setTitle(title);
+        req.setContent("内容：" + title);
+        PostVO post = postService.create(authorId, req);
+
+        for (int i = 0; i < comments; i++) {
+            CreateCommentRequest commentReq = new CreateCommentRequest();
+            commentReq.setPostId(post.getId());
+            commentReq.setContent("评论 " + i);
+            commentService.create(authorId, commentReq);
+        }
+
+        return postService.getById(post.getId());
     }
 }

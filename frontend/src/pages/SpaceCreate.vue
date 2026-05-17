@@ -56,20 +56,44 @@ function cancel() {
     <NCard title="创建学习空间">
       <div class="form">
         <label>空间名称</label>
-        <NInput v-model:value="name" placeholder="例如：Java 学习小组" maxlength="64" />
+        <NInput
+          v-model:value="name"
+          placeholder="例如：Java 学习小组"
+          maxlength="64"
+        />
 
         <label>简介</label>
-        <NInput v-model:value="description" type="textarea" placeholder="简单介绍一下空间..." maxlength="255" />
+        <NInput
+          v-model:value="description"
+          type="textarea"
+          placeholder="简单介绍一下空间..."
+          maxlength="255"
+        />
 
         <label>分类</label>
-        <NSelect v-model:value="category" :options="categoryOptions" placeholder="选择分类" />
+        <NSelect
+          v-model:value="category"
+          :options="categoryOptions"
+          placeholder="选择分类"
+        />
 
         <label>加入方式</label>
-        <NSelect v-model:value="visibility" :options="visibilityOptions" />
+        <NSelect
+          v-model:value="visibility"
+          :options="visibilityOptions"
+        />
 
         <div class="actions">
-          <NButton type="primary" :loading="loading" @click="submit">创建</NButton>
-          <NButton @click="cancel">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="loading"
+            @click="submit"
+          >
+            创建
+          </NButton>
+          <NButton @click="cancel">
+            取消
+          </NButton>
         </div>
       </div>
     </NCard>

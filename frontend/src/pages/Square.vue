@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { NTag, NSpin, NEmpty, NIcon } from 'naive-ui';
-import { 
-  SearchOutline, 
-  ChatbubblesOutline, 
-  NotificationsOutline, 
-  StarOutline, 
+import { NTag, NSpin, NIcon } from 'naive-ui';
+import {
+  ChatbubblesOutline,
   PlanetOutline,
   AddOutline,
   SettingsOutline,
@@ -18,7 +15,7 @@ import {
   HeartOutline
 } from '@vicons/ionicons5';
 import { getPosts } from '@/api/posts';
-import { renderMentions } from '@/utils/mention';
+import MentionText from '@/components/MentionText.vue';
 import type { PostVO } from '@/types/post';
 
 const router = useRouter();
@@ -38,17 +35,24 @@ async function loadPosts(reset = false) {
   if (loading.value) return;
   loading.value = true;
   try {
-    const cursor = reset ? undefined : posts.value[posts.value.length - 1]?.id;
-    const cursorVal = sort.value === 'trending'
-      ? (reset ? undefined : posts.value[posts.value.length - 1]?.likeCount)
-      : cursor;
-    const list = await getPosts({ scope: 'SQUARE', sort: sort.value, cursor: cursorVal, limit: 10 });
+    const lastPost = posts.value[posts.value.length - 1];
+    const list = await getPosts({
+      scope: 'SQUARE',
+      sort: sort.value,
+      cursor: reset ? undefined : (sort.value === 'trending' ? lastPost?.commentCount : lastPost?.id),
+      cursorId: reset ? undefined : lastPost?.id,
+      limit: 10,
+    });
     if (reset) {
       posts.value = list;
     } else {
       posts.value.push(...list);
     }
-    hasMore.value = list.length >= 10;
+    if (sort.value === 'essence') {
+      hasMore.value = false;
+    } else {
+      hasMore.value = list.length >= 10;
+    }
   } catch {
     // 忽略加载失败，保留当前列表状态
   }
@@ -78,6 +82,10 @@ function goAdmin() {
   router.push('/admin');
 }
 
+function postPreview(content: string) {
+  return content.length > 200 ? `${content.slice(0, 200)}...` : content;
+}
+
 function scrollToListEnd(e: Event) {
   const target = e.target as HTMLElement;
   if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
@@ -89,35 +97,38 @@ onMounted(() => loadPosts(true));
 </script>
 
 <template>
-  <div class="square-layout" @scroll="scrollToListEnd">
+  <div
+    class="square-layout"
+    @scroll="scrollToListEnd"
+  >
     <div class="header-banner">
       <div class="banner-content">
         <h1 class="page-title gradient-text">
-          <n-icon size="32" class="title-icon"><PlanetOutline /></n-icon>
+          <n-icon
+            size="32"
+            class="title-icon"
+          >
+            <PlanetOutline />
+          </n-icon>
           广场
         </h1>
-        <p class="page-subtitle">探索校园热点，分享你的想法</p>
+        <p class="page-subtitle">
+          探索校园热点，分享你的想法
+        </p>
       </div>
       <div class="header-actions">
-        <button class="action-btn" @click="router.push('/search')" title="搜索">
-          <n-icon><SearchOutline /></n-icon>
-        </button>
-        <button class="action-btn" @click="router.push('/messages')" title="私信">
-          <n-icon><ChatbubblesOutline /></n-icon>
-        </button>
-        <button class="action-btn" @click="router.push('/notifications')" title="通知">
-          <n-icon><NotificationsOutline /></n-icon>
-        </button>
-        <button class="action-btn" @click="router.push('/points')" title="积分">
-          <n-icon><StarOutline /></n-icon>
-        </button>
-        <button class="action-btn" @click="router.push('/ai')" title="AI 助手">
-          <span class="ai-text">AI</span>
-        </button>
-        <button v-if="isAdmin" class="action-btn admin-btn" @click="goAdmin" title="管理后台">
+        <button
+          v-if="isAdmin"
+          class="action-btn admin-btn"
+          title="管理后台"
+          @click="goAdmin"
+        >
           <n-icon><SettingsOutline /></n-icon>
         </button>
-        <button class="neon-btn create-btn" @click="goCreate">
+        <button
+          class="neon-btn create-btn"
+          @click="goCreate"
+        >
           <n-icon><AddOutline /></n-icon> 发布
         </button>
       </div>
@@ -133,21 +144,53 @@ onMounted(() => loadPosts(true));
             :class="{ active: sort === opt.key }"
             @click="switchSort(opt.key)"
           >
-            <n-icon size="18"><component :is="opt.icon" /></n-icon>
+            <n-icon size="18">
+              <component :is="opt.icon" />
+            </n-icon>
             <span>{{ opt.label }}</span>
           </div>
         </div>
 
-        <div v-if="posts.length === 0 && !loading" class="empty-state glass-card">
-          <n-empty description="暂无帖子，快去抢沙发吧" />
-          <button class="neon-btn mt-4" @click="goCreate">立即发帖</button>
+        <div
+          v-if="posts.length === 0 && !loading"
+          class="empty-state glass-card"
+        >
+          <n-icon
+            size="64"
+            color="rgba(255,255,255,0.1)"
+          >
+            <PlanetOutline v-if="sort === 'latest'" />
+            <FlameOutline v-else-if="sort === 'trending'" />
+            <RibbonOutline v-else-if="sort === 'essence'" />
+            <BookmarkOutline v-else />
+          </n-icon>
+          <h3>
+            {{ sort === 'latest' ? '暂无帖子' : sort === 'trending' ? '暂无热门讨论' : sort === 'essence' ? '暂无精华推荐' : '暂无关注动态' }}
+          </h3>
+          <p class="empty-desc">
+            {{ sort === 'latest' ? '快去抢沙发吧' : sort === 'trending' ? '成为第一个引发热议的人' : sort === 'essence' ? '多发好贴，下一个精华就是你' : '去关注一些有趣的人吧' }}
+          </p>
+          <button
+            class="neon-btn mt-4"
+            @click="goCreate"
+          >
+            立即发帖
+          </button>
         </div>
 
         <div class="post-list">
-          <div v-for="post in posts" :key="post.id" class="post-card glass-card" @click="goDetail(post.id)">
+          <div
+            v-for="post in posts"
+            :key="post.id"
+            class="post-card glass-card"
+            @click="goDetail(post.id)"
+          >
             <div class="card-header">
               <div class="author-info">
-                <div class="avatar" :style="{ background: 'var(--cf-gradient-primary)' }">
+                <div
+                  class="avatar"
+                  :style="{ background: 'var(--cf-gradient-primary)' }"
+                >
                   {{ post.author?.nickname?.charAt(0) || '匿' }}
                 </div>
                 <div class="author-meta">
@@ -155,13 +198,30 @@ onMounted(() => loadPosts(true));
                   <span class="post-time">{{ new Date(post.createdAt).toLocaleString() }}</span>
                 </div>
               </div>
-              <n-tag v-if="post.isEssence === 1" type="warning" size="small" round class="essence-tag">
-                <template #icon><n-icon><RibbonOutline /></n-icon></template>精华
+              <n-tag
+                v-if="post.isEssence === 1"
+                type="warning"
+                size="small"
+                round
+                class="essence-tag"
+              >
+                <template #icon>
+                  <n-icon><RibbonOutline /></n-icon>
+                </template>精华
               </n-tag>
             </div>
             
-            <h3 v-if="post.title" class="post-title">{{ post.title }}</h3>
-            <p class="post-preview" v-html="renderMentions(post.content.slice(0, 200)) + (post.content.length > 200 ? '...' : '')" />
+            <h3
+              v-if="post.title"
+              class="post-title"
+            >
+              {{ post.title }}
+            </h3>
+            <p
+              class="post-preview"
+            >
+              <MentionText :text="postPreview(post.content)" />
+            </p>
             
             <div class="card-footer">
               <div class="stats">
@@ -169,20 +229,33 @@ onMounted(() => loadPosts(true));
                 <span class="stat-item"><n-icon><HeartOutline /></n-icon> {{ post.likeCount }}</span>
                 <span class="stat-item"><n-icon><ChatbubblesOutline /></n-icon> {{ post.commentCount }}</span>
               </div>
-              <div class="topics" v-if="post.topics && post.topics.length">
-                <span v-for="t in post.topics" :key="t" class="topic-tag"># {{ t }}</span>
+              <div
+                v-if="post.topics && post.topics.length"
+                class="topics"
+              >
+                <span
+                  v-for="t in post.topics"
+                  :key="t"
+                  class="topic-tag"
+                ># {{ t }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-if="loading" class="loading-state">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
           <n-spin size="large" />
         </div>
-        <div v-if="!hasMore && posts.length > 0" class="end-state">
-          <div class="divider"></div>
+        <div
+          v-if="!hasMore && posts.length > 0"
+          class="end-state"
+        >
+          <div class="divider" />
           <span>— 没有更多了 —</span>
-          <div class="divider"></div>
+          <div class="divider" />
         </div>
       </div>
     </div>
@@ -191,10 +264,9 @@ onMounted(() => loadPosts(true));
 
 <style scoped lang="scss">
 .square-layout {
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
-  background: var(--cf-bg-base);
-  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08), transparent 50%);
+  background: transparent;
 }
 
 .header-banner {
@@ -452,13 +524,15 @@ onMounted(() => loadPosts(true));
 }
 
 .empty-state {
-  padding: 60px 0;
+  padding: 80px 0;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   
+  h3 { margin: 20px 0 8px; color: var(--cf-text-primary); font-size: 20px; }
+  .empty-desc { margin: 0; color: var(--cf-text-secondary); font-size: 15px; }
   .mt-4 { margin-top: 24px; }
 }
 

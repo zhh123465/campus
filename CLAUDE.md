@@ -1,26 +1,19 @@
-# [CLAUDE.md](http://CLAUDE.md)
+# CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude (claude.ai/code) when working with code in this repository.
+
+## 角色设定
+
+与我交流必须使用中文。
+
+遵守以下规则：
+1. 在做任何决策之前，必须先进行充分的研究和分析。
+2. 对于有疑问的地方，必须先进行确认，然后再进行操作。
+3. 对于任何没有的工具和配置，优先询问是否安装，待确认后再安装，不要自作主张使用降级策略替代。
 
 ## 项目概述
 
 CampusForum — 基于多租户开源架构与 AI 增强的高校轻量化学习社群平台。MIT 协议开源。
-
-## 技术栈
-
-
-| 层     | 选型                                                                   |
-| ----- | -------------------------------------------------------------------- |
-| 前端    | Vue3 + Composition API + Vite 5 + Naive UI + Pinia + vite-plugin-pwa |
-| 后端    | Java 17 + Spring Boot 3.x + MyBatis-Plus + Sa-Token                  |
-| 数据库   | MySQL 8.0                                                            |
-| 缓存    | Redis 7 + Caffeine（二级缓存）                                             |
-| 搜索    | MeiliSearch（MySQL FULLTEXT 兜底）                                       |
-| 存储    | MinIO（S3 兼容，预留 OSS 适配）                                               |
-| AI    | LangChain4j + OpenAI 兼容协议                                            |
-| 部署    | Docker Compose（默认） + K8s Helm（可选）                                    |
-| CI/CD | GitHub Actions                                                       |
-
 
 ## 常用命令
 
@@ -29,186 +22,123 @@ CampusForum — 基于多租户开源架构与 AI 增强的高校轻量化学习
 ```bash
 export JAVA_HOME=/home/morose/.local/jdk-21.0.2
 cd backend
-/mnt/d/develop/apache-maven-3.9.4/bin/mvn spring-boot:run   # 启动开发服务器
-/mnt/d/develop/apache-maven-3.9.4/bin/mvn test              # 运行全部单元测试
-/mnt/d/develop/apache-maven-3.9.4/bin/mvn test -Dtest=XxxTest  # 运行单个测试类
+/mnt/d/develop/apache-maven-3.9.4/bin/mvn spring-boot:run        # 启动开发服务器
+/mnt/d/develop/apache-maven-3.9.4/bin/mvn test                   # 运行全部单元测试
+/mnt/d/develop/apache-maven-3.9.4/bin/mvn test -Dtest=XxxTest    # 运行单个测试类
+/mnt/d/develop/apache-maven-3.9.4/bin/mvn package -DskipTests    # 打包（跳过测试）
 ```
 
 **前端**（`frontend/`）：
 
 ```bash
 cd frontend
-npm run dev                      # 启动 Vite 开发服务器
-npm run build                    # 生产构建 → dist/
-npm run lint                     # ESLint + Prettier
+npm run dev          # 启动 Vite 开发服务器（默认 http://localhost:5173）
+npm run build        # 生产构建 → dist/
+npm run lint         # ESLint + Prettier 检查
+npm run format       # Prettier 格式化
+npm test             # vitest 单元测试（run 模式）
+npm run test:watch   # vitest 监听模式
 ```
 
 **部署**（`deploy/`）：
 
 ```bash
 cd deploy
-cp .env.example .env             # 修改域名、密码、AI Key 等
-bash install.sh                  # 一键部署（拉镜像 + 初始化 + 启动）
-docker compose up -d             # 或直接 compose 启动
+cp .env.example .env       # 修改域名、密码、AI Key 等
+bash install.sh            # 一键部署（拉镜像 + 初始化 + 启动）
+docker compose up -d       # 直接 compose 启动
 ```
+
+## 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 前端 | Vue3 + Composition API + Vite 5 + Naive UI + Pinia + vite-plugin-pwa |
+| 后端 | Java 21 + Spring Boot 3.x + MyBatis-Plus + Sa-Token |
+| 数据库 | MySQL 8.0 |
+| 缓存 | Redis 7 + Caffeine（二级缓存） |
+| 搜索 | MeiliSearch（MySQL FULLTEXT 兜底） |
+| 存储 | MinIO（S3 兼容）/ 阿里云 OSS（可选） |
+| AI | LangChain4j + OpenAI 兼容协议 |
+| 部署 | Docker Compose（默认）+ K8s Helm（可选） |
 
 ## 高层架构
 
-**设计原则**：轻量优先、前后端分离、模块化分层、多租户为一等公民。
+**架构模式**：模块化单体（Modular Monolith）。后端按 package 划分业务模块，模块间通过 Spring 内部 API 调用，禁止反向依赖。
 
-**架构模式**：阶段一采用**模块化单体（Modular Monolith）**，后端按 package 划分业务模块，模块间通过 Spring 内部 API 调用、禁止反向依赖。后续可按需拆分为微服务。
-
-### 应用分层
+**应用分层**：
 
 ```
 Controller（接入层）→ Service（业务编排）→ Domain（领域模型）→ Infra（基础设施）
 横向切面：鉴权 / 租户上下文 / 日志 / 限流 / 审计
 ```
 
-### 后端 Package 划分（`com.campusforum`）
+**后端 package 划分**（`com.campusforum`）：
 
+| package | 职责 |
+|---|---|
+| `common` | BaseEntity, R, BusinessException, ErrorCode, GlobalExceptionHandler, CryptoUtils |
+| `infra` | MyBatisPlusConfig, StorageService (MinIO/OSS/Local), WebMvcConfig, Knife4jConfig |
+| `tenant` | TenantContext（ThreadLocal）、TenantInterceptor、TenantController |
+| `security` | SaToken 鉴权配置 |
+| `user` | 注册/登录/个人资料/封禁/角色变更 |
+| `space` | 学习空间 CRUD、成员管理、加入/审核/退出 |
+| `post` | 帖子 CRUD、评论（含回复）、点赞/收藏 |
+| `qa` | 问答扩展：悬赏、采纳回答 |
+| `checkin` | 打卡挑战、每日打卡、连续统计、排行榜 |
+| `resource` | 文件上传/下载/列表 |
+| `notify` | 通知（点赞/评论/回复/采纳/申请）+ WebSocket 推送 |
+| `search` | 全局搜索（帖子 FULLTEXT + 用户/资源/空间 LIKE） |
+| `admin` | 仪表盘/用户/帖子/空间管理/审计日志 + StpInterface 权限映射 |
+| `ai` | AiService 接口抽象 + MockAiService（摘要/审核/标签/问答） |
+| `message` | 私信：一对一文本+图片、WebSocket 实时推送 |
+| `follow` | 关注/取关/粉丝/关注列表/计数 |
+| `achievement` | 成就徽章自动触发/种子数据/用户成就查询 |
+| `points` | 积分流水、登录/发帖/打卡/采纳自动奖励 |
+| `sensitive` | 敏感词过滤、管理 CRUD |
+| `report` | 举报创建、管理后台处理/驳回/批量操作 |
 
-| package    | 职责                                                                                   | 状态  |
-| ---------- | ------------------------------------------------------------------------------------ | --- |
-| `common`   | 通用组件：BaseEntity, R, BusinessException, ErrorCode, GlobalExceptionHandler             | ✓   |
-| `infra`    | 基础设施：MyBatisPlusConfig, CampusMetaObjectHandler, StorageService, LocalStorageService | ✓   |
-| `tenant`   | 多租户：TenantContext（ThreadLocal）、TenantInterceptor                                     | ✓   |
-| `security` | SaToken 鉴权配置                                                                         | ✓   |
-| `user`     | 用户注册/登录/个人资料/管理员封禁/角色变更                                                              | ✓   |
-| `space`    | 学习空间 CRUD、成员管理、加入/审核/退出                                                              | ✓   |
-| `post`     | 帖子 CRUD、评论（含回复）、点赞/收藏切换                                                              | ✓   |
-| `qa`       | 问答扩展：悬赏、采纳回答                                                                         | ✓   |
-| `checkin`  | 打卡挑战、每日打卡、连续统计、排行榜                                                                   | ✓   |
-| `resource` | 文件上传/下载/列表                                                                           | ✓   |
-| `notify`   | 通知创建（点赞/评论/回复/采纳/申请）、列表/已读                                                           | ✓   |
-| `search`   | 全局搜索（帖子 FULLTEXT + 用户/资源/空间 LIKE）                                                    | ✓   |
-| `admin`    | 管理后台：仪表盘/用户/帖子/空间管理/审计日志 + StpInterface 权限映射                                         | ✓   |
-| `ai`       | AI 接口抽象 + MockAiService（摘要/审核/标签推荐/智能问答）                                             | ✓   |
-| `message`  | 私信：一对一文本+图片、WebSocket 实时推送、对话列表                                                      | ✓   |
-| `follow`   | 关注/取关/粉丝列表/关注列表/计数                                                                  | ✓   |
-| `achievement` | 成就徽章自动触发/种子数据/用户成就查询                                                              | ✓   |
-| `points`   | 积分流水记录、登录/发帖/打卡/采纳自动奖励                                                              | ✓   |
-| `sensitive` | 敏感词内容过滤、管理 CRUD                                                                      | ✓   |
-| `report`   | 用户举报创建、管理后台处理/驳回/批量操作                                                              | ✓   |
+**前端页面**（`frontend/src/pages/`）：Home、Square、Spaces、PostDetail、PostCreate、Messages、Notifications、Profile、UserPage、FollowsList、Resources、ResourceDetail、ResourceUpload、CheckinChallenges、CheckinChallengeDetail、CheckinChallengeCreate、Search、Points、AiAssistant、Login、Register、ForgotPassword、NotFound
 
+**前端 store**：`stores/auth.ts`（用户认证状态）
 
-### 多租户设计（核心研究点）
+**前端 composables**：`composables/useWebSocket.ts`（WebSocket 连接复用）
 
-- **双模可切换**：`tenant.mode = standalone | multi`，一键切换独立部署/多租户 SaaS
-- **数据隔离**：所有业务表带 `tenant_id`，由 MyBatis-Plus `TenantLineInnerInterceptor` 自动改写 SQL
-- **双保险**：SQL 插件注入 + Service 层 `tenant_id` 比对断言
+## 关键设计
+
+### 多租户
+
+- **双模切换**：`application.yml` 中 `tenant.mode: standalone | multi`
+- **数据隔离**：所有业务表含 `tenant_id`，由 `TenantLineInnerInterceptor` 自动改写 SQL；不隔离的表在 `MyBatisPlusConfig.TENANT_IGNORE_TABLES` 中声明（`tenants`、`achievements`、`sensitive_words`）
 - **缓存隔离**：Redis Key 格式 `{app}:t{tenantId}:{module}:{key}`
-- **搜索隔离**：MeiliSearch 索引按租户分片 `post-t1`、`post-t2`
+- **搜索隔离**：MeiliSearch 索引按租户分片 `post-t{id}`
 - **文件隔离**：MinIO 按 `tenant-{id}/` 分目录
 
-### 权限模型
+### 权限模型（三级 RBAC）
 
-三级 RBAC + 资源域校验：平台层（超级管理员）→ 校级（管理员/普通用户）→ 空间级（所有者/管理员/成员）。权限粒度到接口级，以 `domain:resource:action` 命名。
+平台层（超级管理员）→ 校级（管理员/普通用户）→ 空间级（所有者/管理员/成员）。权限以 `domain:resource:action` 格式命名，鉴权通过 Sa-Token 实现。
 
-### AI 可插拔设计
+### AI 可插拔
 
-`AiService` 接口抽象，通过 `ai.provider` 配置切换实现（`openai` → `ollama` → `mock`）。支持 OpenAI 兼容协议的任何模型（DeepSeek、智谱、通义、本地 Ollama）。
+`AiService` 接口抽象，通过 `ai.provider: openai | ollama | mock` 配置切换。支持任何 OpenAI 兼容协议（DeepSeek、智谱、通义、Ollama）。AI 限流：每用户每分钟 5 次，每租户每天 1000 次。
 
-## 工程目录（规划）
+### 存储可插拔
 
-```
-CampusForum/
-├─ backend/                  # Spring Boot 应用
-├─ frontend/                 # Vue3 + Vite
-├─ deploy/                   # Docker Compose / Helm / 一键脚本
-├─ docs/                     # 需求/设计/用户/二次开发文档
-├─ db/                       # schema.sql + migrations
-├─ .github/                  # CI/CD workflows
-├─ LICENSE                   # MIT
-└─ README.md
-```
+`StorageService` 接口，通过 `storage.type: minio | oss | local` 配置切换。
+
+### WebSocket
+
+通知和私信均走 WebSocket（端点 `/ws/notify`），后端由 `NotifyWebSocketHandler` + `SessionRegistry` 管理连接，前端由 `useWebSocket` composable 统一复用。
 
 ## 开发约定
 
-- **提交**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:`）
-- **分支策略**：`main`（稳定）← `develop`（集成）← `feature/`* / `fix/*`
 - **统一响应格式**：`{ code: 0, message: "ok", data: {...}, traceId: "..." }`
 - **错误码**：`0` 成功，`1xxxx` 业务错误，`4xxxx` 客户端错误，`5xxxx` 服务端错误
 - **URL 前缀**：`/api/v1/`
-- **鉴权 Header**：`Authorization: Bearer <token>`
+- **鉴权 Header**：`Authorization: Bearer <token>`（Sa-Token `tik` 风格）
 - **多租户 Header**：`X-Tenant-Id`（仅 SaaS 模式）
-- **分页**：游标分页优先（`id < lastId limit n`），避免深翻页 OFFSET
+- **分页**：游标分页优先（`id < lastId limit n`），MyBatis-Plus 分页插件限制最大 100 条
+- **逻辑删除**：字段 `deleted`，`1` 已删除，`0` 正常
 - **时间格式**：ISO 8601
-
-## 当前状态（2026-05-14）
-
-### 已完成
-
-
-| 模块       | 内容                                            | 测试数 |
-| -------- | --------------------------------------------- | --- |
-| M1 用户系统  | 注册/登录/个人资料/CAS预留                              | 4   |
-| M2 全校广场  | 发帖/帖子流/详情/评论/点赞/游标分页/置顶有效期                      | 5   |
-| M3 学习空间  | 空间CRUD/成员管理/加入/审核/空间内帖子审核                       | 4   |
-| M4 自律打卡  | 挑战创建/每日打卡/连续统计/排行榜                            | 5   |
-| M5 资源分享  | 文件上传/分类下载/本地存储/MinIO/OSS                     | 5   |
-| M6 问答系统  | 悬赏提问/回答采纳                                     | 4   |
-| M7 通知中心  | 点赞/评论/回复/采纳/申请通知+已读+WebSocket实时推送+私信              | 7   |
-| M8 管理后台  | 仪表盘/用户/帖子/空间/租户/审计/敏感词/举报/AI配置/批量操作             | 5   |
-| X4 搜索服务  | MeiliSearch + MySQL FULLTEXT 双模搜索             | 5   |
-| X3 AI 能力 | AiService 可插拔（OpenAI/Mock），摘要/审核/标签/问答          | 9   |
-| X1 多租户   | TenantContext/TenantLineInnerInterceptor/隔离测试 | 4   |
-| X5 积分系统  | PointsService 流水记录、登录/发帖/打卡/采纳自动奖励          | 7   |
-| 举报系统    | 用户举报创建、管理后台处理/驳回/批量操作                        | 5   |
-| 成就系统    | 徽章自动触发（发帖/点赞/采纳/打卡）、种子数据、个人主页展示              | 8   |
-| 敏感词管理  | 内容过滤、Admin CRUD 管理页                          | 5   |
-| 用户关注    | 关注/取关/粉丝列表/关注列表/计数                           | 8   |
-| 租户管理    | Tenant CRUD、品牌设置、AI 配置                       | —   |
-| Knife4j  | OpenAPI 文档自动生成，/doc.html 可访问                 | —   |
-| CI/CD   | GitHub Actions — JDK 21、自动化测试                | —   |
-
-
-**总计 87 个测试全部通过，前端构建成功。P0/P1 任务全部完成。**
-
-### 可选后续增强
-
-- **CAS/OAuth 单点登录** — 对接高校统一认证
-- **PWA 离线支持** — Service Worker 缓存策略优化
-- **数据统计面板** — 用户增长/内容趋势图表
-- **国际化 i18n** — 中英文切换
-
-### 关键代码位置
-
-
-| 文件                                      | 作用                                               |
-| --------------------------------------- | ------------------------------------------------ |
-| `admin/security/AdminStpInterface.java` | SaToken 权限映射（role→permission）                    |
-| `admin/service/AuditLogService.java`    | 审计日志（记录所有 admin 写操作）                             |
-| `points/service/PointsService.java`     | 积分流水 + 余额查询，登录/发帖/打卡/采纳自动奖励                   |
-| `report/service/ReportService.java`     | 用户举报创建、管理员处理/驳回                                  |
-| `notify/websocket/SessionRegistry.java` | WebSocket 会话管理，按 userId 推送消息                      |
-| `infra/MyBatisPlusConfig.java`          | TenantLineInnerInterceptor（自动注入 tenant_id）       |
-| `tenant/TenantInterceptor.java`         | 请求级租户上下文设置                                       |
-| `ai/service/AiService.java`             | AI 接口（可插拔，MockAiService / OpenAiCompatService）   |
-| `ai/service/OpenAiCompatService.java`   | LangChain4j OpenAI 兼容协议实现（DeepSeek/Ollama/智谱） |
-| `search/service/SearchService.java`     | 统一搜索入口（MeiliSearch + MySQL FULLTEXT）            |
-| `search/service/MeiliSearchClient.java` | MeiliSearch REST 客户端（索引/搜索/删除）                   |
-| `infra/CampusMetaObjectHandler.java`    | MyBatis-Plus 自动填充（createdAt/updatedAt）           |
-| `infra/MinioStorageService.java`        | MinIO/S3 存储适配（条件装配）                              |
-| `infra/OssStorageService.java`          | 阿里云 OSS 存储适配（条件装配）                               |
-| `follow/service/FollowService.java`     | 关注/取关/粉丝列表/关注列表                                  |
-| `achievement/service/AchievementService.java` | 徽章自动触发、用户成就查询                                |
-| `sensitive/service/SensitiveWordService.java` | 敏感词内容过滤、管理 CRUD                              |
-| `tenant/service/TenantService.java`     | 租户 CRUD、品牌设置、AI 配置                               |
-
-
-### 数据库表状态
-
-
-| 表                                    | 状态                                   |
-| ------------------------------------ | ------------------------------------ |
-| `users` ~ `notifications`            | 已有 Service/Controller，完整 CRUD        |
-| `points_logs`                        | PointsService 自动记录                    |
-| `reports`                            | ReportService 创建/处理/批量               |
-| `audit_logs`                         | AuditLogService 记录 + Admin 只读查询      |
-| `sensitive_words`                    | SensitiveWordService 过滤 + Admin CRUD |
-| `achievements` + `user_achievements` | AchievementService 自动触发 + 种子数据       |
-| `tenants`                            | TenantService 完整 CRUD + 品牌/AI 配置     |
-| `follows`                            | FollowService 关注/取关/列表/计数           |
-
-
+- **提交规范**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:`）
+- **分支策略**：`main` ← `develop` ← `feature/*` / `fix/*`

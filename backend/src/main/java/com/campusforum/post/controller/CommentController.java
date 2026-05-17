@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.campusforum.common.R;
 import com.campusforum.post.dto.CommentVO;
 import com.campusforum.post.dto.CreateCommentRequest;
+import com.campusforum.post.dto.ReactionRequest;
 import com.campusforum.post.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,13 @@ public class CommentController {
         long userId = StpUtil.getLoginIdAsLong();
         commentService.deleteComment(userId, id);
         return R.ok();
+    }
+
+    @PostMapping("/api/v1/comments/{id}/reactions")
+    public R<Boolean> toggleReaction(@PathVariable Long id, @Valid @RequestBody ReactionRequest req) {
+        long userId = StpUtil.getLoginIdAsLong();
+        req.setTargetId(id);
+        req.setTargetType("COMMENT");
+        return R.ok(commentService.toggleReaction(userId, id, req));
     }
 }

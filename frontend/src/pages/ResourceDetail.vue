@@ -62,7 +62,9 @@ onMounted(load);
 <template>
   <div class="detail-page">
     <template v-if="loading">
-      <div class="loading"><NSpin /></div>
+      <div class="loading">
+        <NSpin />
+      </div>
     </template>
 
     <template v-else-if="resource">
@@ -71,19 +73,56 @@ onMounted(load);
           <div>
             <h2>{{ resource.fileName }}</h2>
             <NSpace>
-              <NTag size="small">{{ resource.fileType.toUpperCase() }}</NTag>
-              <NTag v-if="resource.visibility === 'PUBLIC'" type="success" size="small">公开</NTag>
-              <NTag v-else-if="resource.visibility === 'SPACE'" type="warning" size="small">空间</NTag>
-              <NTag v-else type="default" size="small">私有</NTag>
+              <NTag size="small">
+                {{ resource.fileType.toUpperCase() }}
+              </NTag>
+              <NTag
+                v-if="resource.visibility === 'PUBLIC'"
+                type="success"
+                size="small"
+              >
+                公开
+              </NTag>
+              <NTag
+                v-else-if="resource.visibility === 'SPACE'"
+                type="warning"
+                size="small"
+              >
+                空间
+              </NTag>
+              <NTag
+                v-else
+                type="default"
+                size="small"
+              >
+                私有
+              </NTag>
             </NSpace>
           </div>
           <div class="header-actions">
-            <NButton size="small" @click="goBack">返回列表</NButton>
-            <NButton v-if="isUploader()" type="error" size="small" @click="handleDelete">删除</NButton>
+            <NButton
+              size="small"
+              @click="goBack"
+            >
+              返回列表
+            </NButton>
+            <NButton
+              v-if="isUploader()"
+              type="error"
+              size="small"
+              @click="handleDelete"
+            >
+              删除
+            </NButton>
           </div>
         </div>
 
-        <p v-if="resource.description" class="resource-desc">{{ resource.description }}</p>
+        <p
+          v-if="resource.description"
+          class="resource-desc"
+        >
+          {{ resource.description }}
+        </p>
 
         <div class="info-grid">
           <div class="info-item">
@@ -104,14 +143,46 @@ onMounted(load);
           </div>
         </div>
 
-        <div v-if="resource.college || resource.major || resource.course || resource.tags?.length" class="info-tags">
-          <NTag v-if="resource.college" type="info" size="small">{{ resource.college }}</NTag>
-          <NTag v-if="resource.major" type="info" size="small">{{ resource.major }}</NTag>
-          <NTag v-if="resource.course" type="info" size="small">{{ resource.course }}</NTag>
-          <NTag v-for="t in resource.tags" :key="t" size="small">{{ t }}</NTag>
+        <div
+          v-if="resource.college || resource.major || resource.course || resource.tags?.length"
+          class="info-tags"
+        >
+          <NTag
+            v-if="resource.college"
+            type="info"
+            size="small"
+          >
+            {{ resource.college }}
+          </NTag>
+          <NTag
+            v-if="resource.major"
+            type="info"
+            size="small"
+          >
+            {{ resource.major }}
+          </NTag>
+          <NTag
+            v-if="resource.course"
+            type="info"
+            size="small"
+          >
+            {{ resource.course }}
+          </NTag>
+          <NTag
+            v-for="t in resource.tags"
+            :key="t"
+            size="small"
+          >
+            {{ t }}
+          </NTag>
         </div>
 
-        <NButton type="primary" block @click="handleDownload" class="download-btn">
+        <NButton
+          type="primary"
+          block
+          class="download-btn"
+          @click="handleDownload"
+        >
           下载文件
         </NButton>
       </NCard>

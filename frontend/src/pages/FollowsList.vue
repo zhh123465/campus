@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NTabs, NTabPane, NAvatar, NList, NListItem, NButton, useMessage } from 'naive-ui';
+import { NTabs, NTabPane, NAvatar, NList, NListItem, useMessage } from 'naive-ui';
+import { getUserById } from '@/api/users';
 import { getUserFollowers, getUserFollowing, getFollowCounts } from '@/api/follows';
 import type { UserVO } from '@/types/user';
 
@@ -11,69 +12,126 @@ const message = useMessage();
 
 const userId = Number(route.params.id);
 const userName = ref('');
-const activeTab = ref('followers');
+const activeTab = ref<'followers' | 'following'>('followers');
 const followers = ref<UserVO[]>([]);
 const following = ref<UserVO[]>([]);
 const followerCount = ref(0);
 const followingCount = ref(0);
 const loading = ref(true);
+const pageTitle = computed(() => {
+  if (!userName.value) return '关注与粉丝';
+  return `${userName.value} 的关注与粉丝`;
+});
+
+function syncTabFromRoute() {
+  const tab = route.query.tab;
+  if (tab === 'following') {
+    activeTab.value = 'following';
+  } else {
+    activeTab.value = 'followers';
+  }
+}
 
 onMounted(async () => {
   try {
-    const [followerList, followingList, counts] = await Promise.all([
+    const [followerList, followingList, counts, profile] = await Promise.all([
       getUserFollowers(userId),
       getUserFollowing(userId),
       getFollowCounts(userId),
+      getUserById(userId),
     ]);
     followers.value = followerList;
     following.value = followingList;
     followerCount.value = counts.followers;
     followingCount.value = counts.following;
-    if (followingList.length > 0) {
-      userName.value = followingList[0].nickname || '';
-    }
+    userName.value = profile.nickname || '';
   } catch {
     message.error('加载失败');
   }
   loading.value = false;
+  syncTabFromRoute();
 });
 
 function goToUser(id: number) {
   router.push(`/users/${id}`);
 }
+
+watch(
+  () => route.query.tab,
+  () => {
+    syncTabFromRoute();
+  },
+);
 </script>
 
 <template>
   <div class="follows-page">
-    <h2 v-if="userName">{{ userName }} 的关注与粉丝</h2>
-    <h2 v-else>关注与粉丝</h2>
+    <h2>{{ pageTitle }}</h2>
 
     <NTabs v-model:value="activeTab">
-      <NTabPane name="followers" :tab="`粉丝 (${followerCount})`">
+      <NTabPane
+        name="followers"
+        :tab="`粉丝 (${followerCount})`"
+      >
         <template v-if="!loading && followers.length === 0">
-          <p class="empty">暂无粉丝</p>
+          <p class="empty">
+            暂无粉丝
+          </p>
         </template>
         <NList v-else>
-          <NListItem v-for="u in followers" :key="u.id">
-            <div class="user-row" @click="goToUser(u.id)">
-              <NAvatar :size="36" round>{{ u.nickname?.charAt(0) }}</NAvatar>
+          <NListItem
+            v-for="u in followers"
+            :key="u.id"
+          >
+            <div
+              class="user-row"
+              @click="goToUser(u.id)"
+            >
+              <NAvatar
+                :size="36"
+                round
+              >
+                {{ u.nickname?.charAt(0) }}
+              </NAvatar>
               <span class="nickname">{{ u.nickname }}</span>
-              <span v-if="u.bio" class="bio">{{ u.bio }}</span>
+              <span
+                v-if="u.bio"
+                class="bio"
+              >{{ u.bio }}</span>
             </div>
           </NListItem>
         </NList>
       </NTabPane>
 
-      <NTabPane name="following" :tab="`关注 (${followingCount})`">
+      <NTabPane
+        name="following"
+        :tab="`关注 (${followingCount})`"
+      >
         <template v-if="!loading && following.length === 0">
-          <p class="empty">暂未关注任何人</p>
+          <p class="empty">
+            暂未关注任何人
+          </p>
         </template>
         <NList v-else>
-          <NListItem v-for="u in following" :key="u.id">
-            <div class="user-row" @click="goToUser(u.id)">
-              <NAvatar :size="36" round>{{ u.nickname?.charAt(0) }}</NAvatar>
+          <NListItem
+            v-for="u in following"
+            :key="u.id"
+          >
+            <div
+              class="user-row"
+              @click="goToUser(u.id)"
+            >
+              <NAvatar
+                :size="36"
+                round
+              >
+                {{ u.nickname?.charAt(0) }}
+              </NAvatar>
               <span class="nickname">{{ u.nickname }}</span>
-              <span v-if="u.bio" class="bio">{{ u.bio }}</span>
+              <span
+                v-if="u.bio"
+                class="bio"
+              >{{ u.bio }}</span>
             </div>
           </NListItem>
         </NList>

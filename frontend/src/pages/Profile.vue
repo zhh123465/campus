@@ -3,7 +3,6 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { 
   MenuOutline,
-  NotificationsOutline,
   SettingsOutline,
   ArrowBackOutline,
   ThumbsUpOutline,
@@ -34,13 +33,22 @@ const user = {
   <div class="profile-layout">
     <!-- Top Header -->
     <header class="top-header">
-      <div class="header-left" @click="router.back()">
-        <n-icon size="20"><ArrowBackOutline /></n-icon>
+      <div
+        class="header-left"
+        @click="router.back()"
+      >
+        <n-icon size="20">
+          <ArrowBackOutline />
+        </n-icon>
         <span>个人主页</span>
       </div>
       <div class="header-actions">
-        <n-icon size="20"><DocumentTextOutline /></n-icon>
-        <n-icon size="20"><SettingsOutline /></n-icon>
+        <n-icon size="20">
+          <DocumentTextOutline />
+        </n-icon>
+        <n-icon size="20">
+          <SettingsOutline />
+        </n-icon>
       </div>
     </header>
 
@@ -48,12 +56,18 @@ const user = {
       <div class="profile-container">
         <!-- Cover Area -->
         <div class="cover-section">
-          <img :src="auroraBg" class="cover-img" alt="cover" />
+          <img
+            :src="auroraBg"
+            class="cover-img"
+            alt="cover"
+          />
           <div class="profile-main-info">
             <div class="avatar-wrapper">
               <div class="avatar">
                 <!-- Fallback to a gradient or placeholder if no image -->
-                <div class="avatar-placeholder">代</div>
+                <div class="avatar-placeholder">
+                  代
+                </div>
               </div>
             </div>
             <div class="user-details">
@@ -61,8 +75,12 @@ const user = {
                 <h2>{{ user.nickname }}</h2>
                 <span class="level-tag">{{ user.level }}</span>
               </div>
-              <p class="title">{{ user.title }}</p>
-              <p class="bio">{{ user.bio }}</p>
+              <p class="title">
+                {{ user.title }}
+              </p>
+              <p class="bio">
+                {{ user.bio }}
+              </p>
               
               <div class="stats-row">
                 <div class="stat">
@@ -82,8 +100,12 @@ const user = {
                   <span class="val">{{ user.points }}</span>
                 </div>
                 
-                <button class="outline-btn edit-btn">编辑资料</button>
-                <button class="icon-btn"><n-icon><SettingsOutline/></n-icon></button>
+                <button class="outline-btn edit-btn">
+                  编辑资料
+                </button>
+                <button class="icon-btn">
+                  <n-icon><SettingsOutline /></n-icon>
+                </button>
               </div>
             </div>
           </div>
@@ -94,9 +116,13 @@ const user = {
           <!-- Main Left -->
           <div class="main-left">
             <div class="tabs">
-              <div v-for="tab in tabs" :key="tab" 
-                   class="tab" :class="{ active: activeTab === tab }"
-                   @click="activeTab = tab">
+              <div
+                v-for="tab in tabs"
+                :key="tab" 
+                class="tab"
+                :class="{ active: activeTab === tab }"
+                @click="activeTab = tab"
+              >
                 {{ tab }}
               </div>
             </div>
@@ -105,17 +131,23 @@ const user = {
               <!-- Post item -->
               <div class="feed-item glass-card">
                 <div class="feed-header">
-                  <div class="avatar">代</div>
+                  <div class="avatar">
+                    代
+                  </div>
                   <div class="info">
                     <span class="name">代码骑士</span>
                     <span class="time">2 小时前</span>
                   </div>
-                  <n-icon class="more"><MenuOutline/></n-icon>
+                  <n-icon class="more">
+                    <MenuOutline />
+                  </n-icon>
                 </div>
                 <div class="feed-content">
                   <p>今天又是努力学习的一天！ 💪</p>
                   <div class="attachment-card">
-                    <div class="icon">📝</div>
+                    <div class="icon">
+                      📝
+                    </div>
                     <div class="att-info">
                       <span class="att-name">数据结构与算法笔记.md</span>
                       <span class="att-size">1.2 MB</span>
@@ -123,9 +155,15 @@ const user = {
                   </div>
                 </div>
                 <div class="feed-actions">
-                  <div class="action"><n-icon><ThumbsUpOutline/></n-icon> 24</div>
-                  <div class="action"><n-icon><ChatboxOutline/></n-icon> 36</div>
-                  <div class="action right"><n-icon><ShareSocialOutline/></n-icon> 分享</div>
+                  <div class="action">
+                    <n-icon><ThumbsUpOutline /></n-icon> 24
+                  </div>
+                  <div class="action">
+                    <n-icon><ChatboxOutline /></n-icon> 36
+                  </div>
+                  <div class="action right">
+                    <n-icon><ShareSocialOutline /></n-icon> 分享
+                  </div>
                 </div>
               </div>
             </div>
@@ -140,10 +178,18 @@ const user = {
                 <span class="more">查看全部</span>
               </div>
               <div class="badges">
-                <div class="badge neon-glow"><span class="emoji">🏆</span></div>
-                <div class="badge neon-glow"><span class="emoji">🥇</span></div>
-                <div class="badge neon-glow"><span class="emoji">🎖️</span></div>
-                <div class="badge neon-glow"><span class="emoji">🏅</span></div>
+                <div class="badge neon-glow">
+                  <span class="emoji">🏆</span>
+                </div>
+                <div class="badge neon-glow">
+                  <span class="emoji">🥇</span>
+                </div>
+                <div class="badge neon-glow">
+                  <span class="emoji">🎖️</span>
+                </div>
+                <div class="badge neon-glow">
+                  <span class="emoji">🏅</span>
+                </div>
               </div>
             </div>
 
@@ -155,29 +201,34 @@ const user = {
               </div>
               <div class="calendar-grid">
                 <!-- CSS grid for squares -->
-                <div class="day-label">一</div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="day-label">二</div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square"></div>
-                <div class="day-label">三</div>
-                <div class="square active"></div>
-                <div class="square active"></div>
-                <div class="square"></div>
-                <div class="square active"></div>
-                <div class="square active"></div>
+                <div class="day-label">
+                  一
+                </div>
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square active" />
+                <div class="day-label">
+                  二
+                </div>
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square" />
+                <div class="day-label">
+                  三
+                </div>
+                <div class="square active" />
+                <div class="square active" />
+                <div class="square" />
+                <div class="square active" />
+                <div class="square active" />
               </div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>

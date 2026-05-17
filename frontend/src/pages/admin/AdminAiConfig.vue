@@ -55,7 +55,9 @@ async function save() {
 
 <template>
   <div style="padding: 24px;">
-    <h2 style="margin-bottom: 16px;">AI 配置管理</h2>
+    <h2 style="margin-bottom: 16px;">
+      AI 配置管理
+    </h2>
 
     <NSpace style="margin-bottom: 16px;">
       <NSelect
@@ -68,29 +70,62 @@ async function save() {
     </NSpace>
 
     <template v-if="selectedTenantId">
-      <NCard v-if="!loading" title="AI 服务配置">
-        <NSpace vertical style="width: 100%; max-width: 500px;">
+      <NCard
+        v-if="!loading"
+        title="AI 服务配置"
+      >
+        <NSpace
+          vertical
+          style="width: 100%; max-width: 500px;"
+        >
           <div>
             <label style="display:block; margin-bottom: 4px; font-size: 14px; color: #666;">AI Provider</label>
-            <NSelect v-model:value="form.provider" :options="providerOptions" />
+            <NSelect
+              v-model:value="form.provider"
+              :options="providerOptions"
+            />
           </div>
           <div>
             <label style="display:block; margin-bottom: 4px; font-size: 14px; color: #666;">API Base URL</label>
-            <NInput v-model:value="form.baseUrl" placeholder="https://api.deepseek.com/v1" />
+            <NInput
+              v-model:value="form.baseUrl"
+              placeholder="https://api.deepseek.com/v1"
+            />
           </div>
           <div>
             <label style="display:block; margin-bottom: 4px; font-size: 14px; color: #666;">API Key</label>
-            <NInput v-model:value="form.apiKey" type="password" show-password-on="click" placeholder="sk-..." />
+            <NInput
+              v-model:value="form.apiKey"
+              type="password"
+              show-password-on="click"
+              placeholder="sk-..."
+            />
           </div>
           <div>
             <label style="display:block; margin-bottom: 4px; font-size: 14px; color: #666;">Model</label>
-            <NInput v-model:value="form.model" placeholder="deepseek-chat" />
+            <NInput
+              v-model:value="form.model"
+              placeholder="deepseek-chat"
+            />
           </div>
-          <NButton type="primary" :loading="saving" @click="save">保存配置</NButton>
+          <NButton
+            type="primary"
+            :loading="saving"
+            @click="save"
+          >
+            保存配置
+          </NButton>
         </NSpace>
       </NCard>
-      <p v-else>加载中...</p>
+      <p v-else>
+        加载中...
+      </p>
     </template>
-    <p v-else style="color: #999;">请先选择租户</p>
+    <p
+      v-else
+      style="color: #999;"
+    >
+      请先选择租户
+    </p>
   </div>
 </template>

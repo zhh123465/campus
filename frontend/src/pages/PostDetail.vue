@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NInput, NTag, NSpace, NSpin, NModal, NSelect, useMessage } from 'naive-ui';
 import { getPostById, deletePost, toggleReaction } from '@/api/posts';
-import { createComment, getComments, deleteComment } from '@/api/comments';
+import { createComment, getComments, deleteComment, toggleCommentReaction } from '@/api/comments';
 import { getQaInfo, acceptAnswer } from '@/api/qa';
 import { createReport } from '@/api/report';
-import { renderMentions } from '@/utils/mention';
 import { useAuthStore } from '@/stores/auth';
+import MentionText from '@/components/MentionText.vue';
 import type { PostVO, CommentVO } from '@/types/post';
 import type { QaQuestionVO } from '@/types/qa';
 
@@ -66,9 +66,14 @@ async function submitReport() {
   reportSubmitting.value = false;
 }
 
-const currentUserId = authStore.user?.id;
+const currentUserId = computed(() => authStore.user?.id);
 const isQaPost = () => post.value?.type === 'QA';
-const isPostAuthor = () => currentUserId === post.value?.authorId;
+const isPostAuthor = () => currentUserId.value === post.value?.authorId;
+
+function goUser(userId?: number | null) {
+  if (!userId) return;
+  router.push(`/users/${userId}`);
+}
 
 async function loadPost() {
   loading.value = true;
@@ -155,7 +160,7 @@ async function submitComment() {
 
 async function handleCommentLike(comment: CommentVO) {
   try {
-    const liked = await toggleReaction(comment.id, 'LIKE', 'COMMENT');
+    const liked = await toggleCommentReaction(comment.id, 'LIKE');
     if (comment.likeCount == null) comment.likeCount = 0;
     comment.likeCount += liked ? 1 : -1;
   } catch {
@@ -182,21 +187,39 @@ onMounted(loadPost);
 <template>
   <div class="detail-page">
     <template v-if="loading">
-      <div class="loading"><NSpin /></div>
+      <div class="loading">
+        <NSpin />
+      </div>
     </template>
 
     <template v-else-if="post">
       <NCard class="post-content">
         <div class="post-header">
-          <div class="author-info">
-            <div class="avatar">{{ post.author?.nickname?.charAt(0) || '?' }}</div>
-            <div>
-              <div class="author-name">{{ post.author?.nickname || '匿名' }}</div>
-              <div class="post-time">{{ new Date(post.createdAt).toLocaleString() }}</div>
+          <button
+            type="button"
+            class="author-info author-link"
+            @click="goUser(post.authorId)"
+          >
+            <div class="avatar">
+              {{ post.author?.nickname?.charAt(0) || '?' }}
             </div>
-          </div>
+            <div>
+              <div class="author-name">
+                {{ post.author?.nickname || '匿名' }}
+              </div>
+              <div class="post-time">
+                {{ new Date(post.createdAt).toLocaleString() }}
+              </div>
+            </div>
+          </button>
           <NSpace>
-            <NTag v-if="post.isEssence === 1" type="warning" size="small">精华</NTag>
+            <NTag
+              v-if="post.isEssence === 1"
+              type="warning"
+              size="small"
+            >
+              精华
+            </NTag>
             <NButton
               size="small"
               type="warning"
@@ -222,18 +245,56 @@ onMounted(loadPost);
           </NSpace>
         </div>
 
-        <h2 v-if="post.title" class="post-title">{{ post.title }}</h2>
-        <p class="post-body" v-html="renderMentions(post.content)" />
+        <h2
+          v-if="post.title"
+          class="post-title"
+        >
+          {{ post.title }}
+        </h2>
+        <p
+          class="post-body"
+        >
+          <MentionText :text="post.content" />
+        </p>
 
-        <NSpace v-if="post.topics && post.topics.length" class="topics">
-          <NTag v-for="t in post.topics" :key="t" size="small">{{ t }}</NTag>
+        <NSpace
+          v-if="post.topics && post.topics.length"
+          class="topics"
+        >
+          <NTag
+            v-for="t in post.topics"
+            :key="t"
+            size="small"
+          >
+            {{ t }}
+          </NTag>
         </NSpace>
 
         <!-- 问答信息 -->
-        <div v-if="isQaPost() && qa" class="qa-info">
-          <NTag type="warning" size="small">悬赏 {{ qa.bountyPoints }} 积分</NTag>
-          <NTag v-if="qa.isSolved" type="success" size="small">已解决</NTag>
-          <NTag v-else type="info" size="small">待解决</NTag>
+        <div
+          v-if="isQaPost() && qa"
+          class="qa-info"
+        >
+          <NTag
+            type="warning"
+            size="small"
+          >
+            悬赏 {{ qa.bountyPoints }} 积分
+          </NTag>
+          <NTag
+            v-if="qa.isSolved"
+            type="success"
+            size="small"
+          >
+            已解决
+          </NTag>
+          <NTag
+            v-else
+            type="info"
+            size="small"
+          >
+            待解决
+          </NTag>
         </div>
 
         <div class="post-stats">
@@ -255,9 +316,18 @@ onMounted(loadPost);
 
         <!-- 发表评论 -->
         <div class="comment-form">
-          <div v-if="replyTo" class="reply-hint">
+          <div
+            v-if="replyTo"
+            class="reply-hint"
+          >
             回复 @{{ replyTo.nickname }}
-            <NButton size="tiny" text @click="cancelReply">取消</NButton>
+            <NButton
+              size="tiny"
+              text
+              @click="cancelReply"
+            >
+              取消
+            </NButton>
           </div>
           <NInput
             v-model:value="commentText"
@@ -278,20 +348,57 @@ onMounted(loadPost);
         </div>
 
         <!-- 评论列表 -->
-        <div v-for="c in comments" :key="c.id" class="comment-item">
-          <div class="comment-avatar">{{ c.author?.nickname?.charAt(0) || '?' }}</div>
+        <div
+          v-for="c in comments"
+          :key="c.id"
+          class="comment-item"
+        >
+          <button
+            type="button"
+            class="comment-avatar user-avatar-link"
+            @click="goUser(c.authorId)"
+          >
+            {{ c.author?.nickname?.charAt(0) || '?' }}
+          </button>
           <div class="comment-body">
             <div class="comment-header">
-              <span class="comment-author">{{ c.author?.nickname || '匿名' }}</span>
+              <button
+                type="button"
+                class="comment-author user-name-link"
+                @click="goUser(c.authorId)"
+              >
+                {{ c.author?.nickname || '匿名' }}
+              </button>
               <span class="comment-time">{{ new Date(c.createdAt).toLocaleDateString() }}</span>
             </div>
-            <p class="comment-text" v-html="renderMentions(c.content)" />
+            <p
+              class="comment-text"
+            >
+              <MentionText :text="c.content" />
+            </p>
             <div class="comment-actions">
-              <NButton size="tiny" text @click="handleCommentLike(c)">
+              <NButton
+                size="tiny"
+                text
+                @click="handleCommentLike(c)"
+              >
                 👍 {{ c.likeCount || 0 }}
               </NButton>
-              <NButton size="tiny" text @click="handleReply(c)">回复</NButton>
-              <NButton size="tiny" text type="warning" @click="openReport('COMMENT', c.id)">举报</NButton>
+              <NButton
+                size="tiny"
+                text
+                @click="handleReply(c)"
+              >
+                回复
+              </NButton>
+              <NButton
+                size="tiny"
+                text
+                type="warning"
+                @click="openReport('COMMENT', c.id)"
+              >
+                举报
+              </NButton>
               <NButton
                 v-if="isQaPost() && isPostAuthor() && !qa?.isSolved"
                 size="tiny"
@@ -312,27 +419,56 @@ onMounted(loadPost);
                 删除
               </NButton>
             </div>
-            <NTag v-if="qa?.acceptedCommentId === c.id" type="success" size="tiny">已采纳</NTag>
+            <NTag
+              v-if="qa?.acceptedCommentId === c.id"
+              type="success"
+              size="tiny"
+            >
+              已采纳
+            </NTag>
 
             <!-- 子评论 -->
-            <div v-if="c.replies && c.replies.length" class="replies">
-              <div v-for="r in c.replies" :key="r.id" class="reply-item">
-                <span class="reply-author">{{ r.author?.nickname || '匿名' }}</span>
-                <span class="reply-text" v-html="renderMentions(r.content)" />
+            <div
+              v-if="c.replies && c.replies.length"
+              class="replies"
+            >
+              <div
+                v-for="r in c.replies"
+                :key="r.id"
+                class="reply-item"
+              >
+                <button
+                  type="button"
+                  class="reply-author user-name-link"
+                  @click="goUser(r.authorId)"
+                >
+                  {{ r.author?.nickname || '匿名' }}
+                </button>
+                <span
+                  class="reply-text"
+                >
+                  <MentionText :text="r.content" />
+                </span>
                 <span class="reply-time">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-if="comments.length === 0" class="no-comments">
+        <div
+          v-if="comments.length === 0"
+          class="no-comments"
+        >
           <p>暂无评论</p>
         </div>
       </NCard>
     </template>
 
     <!-- 举报弹窗 -->
-    <NModal v-model:show="reportModalShow" title="举报">
+    <NModal
+      v-model:show="reportModalShow"
+      title="举报"
+    >
       <div style="padding: 16px; width: 400px;">
         <NSelect
           v-model:value="reportReason"
@@ -347,8 +483,16 @@ onMounted(loadPost);
           :autosize="{ minRows: 3, maxRows: 6 }"
         />
         <NSpace style="margin-top: 16px; justify-content: flex-end;">
-          <NButton @click="reportModalShow = false">取消</NButton>
-          <NButton type="primary" :loading="reportSubmitting" @click="submitReport">提交</NButton>
+          <NButton @click="reportModalShow = false">
+            取消
+          </NButton>
+          <NButton
+            type="primary"
+            :loading="reportSubmitting"
+            @click="submitReport"
+          >
+            提交
+          </NButton>
         </NSpace>
       </div>
     </NModal>
@@ -378,6 +522,19 @@ onMounted(loadPost);
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.author-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.author-link:hover .author-name,
+.user-name-link:hover {
+  color: #18a058;
+  text-decoration: underline;
 }
 .avatar {
   width: 44px;
@@ -463,6 +620,16 @@ onMounted(loadPost);
   font-size: 14px;
   flex-shrink: 0;
 }
+.user-avatar-link {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+.user-avatar-link:hover,
+.author-link:hover .avatar {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 3px rgba(24, 160, 88, 0.15);
+}
 .comment-body {
   flex: 1;
 }
@@ -473,6 +640,14 @@ onMounted(loadPost);
   font-weight: 600;
   font-size: 14px;
   margin-right: 8px;
+}
+.user-name-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
 }
 .comment-time {
   color: #999;

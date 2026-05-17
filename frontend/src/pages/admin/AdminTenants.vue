@@ -72,10 +72,18 @@ onMounted(load);
   <div class="admin-tenants">
     <div class="header">
       <h2>租户管理</h2>
-      <NButton type="primary" @click="showCreate = true">新建租户</NButton>
+      <NButton
+        type="primary"
+        @click="showCreate = true"
+      >
+        新建租户
+      </NButton>
     </div>
 
-    <table v-if="!loading" class="data-table">
+    <table
+      v-if="!loading"
+      class="data-table"
+    >
       <thead>
         <tr>
           <th>ID</th>
@@ -88,7 +96,10 @@ onMounted(load);
         </tr>
       </thead>
       <tbody>
-        <tr v-for="t in tenants" :key="t.id">
+        <tr
+          v-for="t in tenants"
+          :key="t.id"
+        >
           <td>{{ t.id }}</td>
           <td>{{ t.code }}</td>
           <td>{{ t.name }}</td>
@@ -101,8 +112,16 @@ onMounted(load);
           <td>{{ t.createdAt?.substring(0, 10) }}</td>
           <td>
             <NSpace>
-              <NButton size="small" @click="openEdit(t)">编辑</NButton>
-              <NButton size="small" @click="handleToggleStatus(t.id)">
+              <NButton
+                size="small"
+                @click="openEdit(t)"
+              >
+                编辑
+              </NButton>
+              <NButton
+                size="small"
+                @click="handleToggleStatus(t.id)"
+              >
                 {{ t.status === 1 ? '停用' : '启用' }}
               </NButton>
             </NSpace>
@@ -110,31 +129,56 @@ onMounted(load);
         </tr>
       </tbody>
     </table>
-    <p v-else>加载中...</p>
+    <p v-else>
+      加载中...
+    </p>
 
     <!-- Create Modal -->
-    <NModal v-model:show="showCreate" title="新建租户">
+    <NModal
+      v-model:show="showCreate"
+      title="新建租户"
+    >
       <div class="modal-body">
         <NForm>
           <NFormItem label="编码（必填）">
-            <NInput v-model:value="form.code" placeholder="如 hust" />
+            <NInput
+              v-model:value="form.code"
+              placeholder="如 hust"
+            />
           </NFormItem>
           <NFormItem label="学校名称（必填）">
-            <NInput v-model:value="form.name" placeholder="如 华中科技大学" />
+            <NInput
+              v-model:value="form.name"
+              placeholder="如 华中科技大学"
+            />
           </NFormItem>
           <NFormItem label="域名">
-            <NInput v-model:value="form.domain" placeholder="如 hust.campusforum.com" />
+            <NInput
+              v-model:value="form.domain"
+              placeholder="如 hust.campusforum.com"
+            />
           </NFormItem>
         </NForm>
         <NSpace class="modal-actions">
-          <NButton type="primary" @click="handleCreate">创建</NButton>
-          <NButton @click="showCreate = false">取消</NButton>
+          <NButton
+            type="primary"
+            @click="handleCreate"
+          >
+            创建
+          </NButton>
+          <NButton @click="showCreate = false">
+            取消
+          </NButton>
         </NSpace>
       </div>
     </NModal>
 
     <!-- Edit Modal -->
-    <NModal :show="editingId !== null" title="编辑租户" @update:show="val => { if (!val) editingId = null; }">
+    <NModal
+      :show="editingId !== null"
+      title="编辑租户"
+      @update:show="val => { if (!val) editingId = null; }"
+    >
       <div class="modal-body">
         <NForm>
           <NFormItem label="名称">
@@ -147,12 +191,22 @@ onMounted(load);
             <NInput v-model:value="editForm.logoUrl" />
           </NFormItem>
           <NFormItem label="公告">
-            <NInput v-model:value="editForm.announcement" type="textarea" />
+            <NInput
+              v-model:value="editForm.announcement"
+              type="textarea"
+            />
           </NFormItem>
         </NForm>
         <NSpace class="modal-actions">
-          <NButton type="primary" @click="saveEdit">保存</NButton>
-          <NButton @click="editingId = null">取消</NButton>
+          <NButton
+            type="primary"
+            @click="saveEdit"
+          >
+            保存
+          </NButton>
+          <NButton @click="editingId = null">
+            取消
+          </NButton>
         </NSpace>
       </div>
     </NModal>

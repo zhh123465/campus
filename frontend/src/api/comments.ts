@@ -22,3 +22,12 @@ export async function getComments(postId: number, cursor?: number, limit = 20, q
 export async function deleteComment(id: number): Promise<void> {
   await request({ method: 'DELETE', url: `/comments/${id}` });
 }
+
+export async function toggleCommentReaction(id: number, type: 'LIKE'): Promise<boolean> {
+  const res = await request<boolean>({
+    method: 'POST',
+    url: `/comments/${id}/reactions`,
+    data: { targetType: 'COMMENT', targetId: id, type },
+  });
+  return res.data;
+}

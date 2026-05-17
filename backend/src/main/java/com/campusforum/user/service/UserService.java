@@ -137,11 +137,17 @@ public class UserService {
     private static final SecureRandom secureRandom = new SecureRandom();
     private static final Base64.Encoder base64Encoder = Base64.getUrlEncoder().withoutPadding();
 
-    public String forgotPassword(String email) {
+    /**
+     * 忘记密码：生成重置 token 并存库（实际项目应通过邮件发送，此处仅存库供 reset-password 使用）
+     * 无论邮箱是否存在，统一返回 void，避免用户枚举攻击。
+     */
+    public void forgotPassword(String email) {
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getEmail, email));
+        // 邮箱不存在时静默返回，不抛异常，防止枚举
         if (user == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            log.info("Password reset requested for non-existent email (suppressed)");
+            return;
         }
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
@@ -149,22 +155,21 @@ public class UserService {
         user.setResetToken(token);
         user.setResetTokenExpires(LocalDateTime.now().plusHours(1));
         userMapper.updateById(user);
-        log.info("Password reset token generated for user {}, token={}", user.getId(), token);
-        return token;
+        // SEC-01 修复：不再打印 token 明文，仅记录用户 ID
+        log.info("Password reset token generated for user id={}", user.getId());
+        // TODO: 生产环境应通过邮件服务发送 token，而非 HTTP 响应返回
     }
 
     @Transactional
     public void resetPassword(String email, String token, String newPassword) {
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getEmail, email));
-        if (user == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-        if (user.getResetToken() == null || !user.getResetToken().equals(token)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "重置令牌无效");
+        // 统一返回"令牌无效"，不区分"邮箱不存在"和"token 错误"，防止枚举
+        if (user == null || user.getResetToken() == null || !user.getResetToken().equals(token)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "重置令牌无效或已过期");
         }
         if (user.getResetTokenExpires() == null || user.getResetTokenExpires().isBefore(LocalDateTime.now())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "重置令牌已过期");
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "重置令牌无效或已过期");
         }
         user.setPasswordHash(BCrypt.hashpw(newPassword, BCrypt.gensalt(10)));
         user.setResetToken(null);

@@ -57,8 +57,14 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public R<Map<String, String>> forgotPassword(@RequestBody Map<String, String> body) {
-        String token = userService.forgotPassword(body.get("email"));
-        return R.ok(Map.of("message", "重置令牌已生成，请检查邮箱", "token", token));
+        // 无论邮箱是否存在，统一返回相同响应，防止用户枚举攻击
+        // token 不通过 HTTP 响应返回，应通过邮件发送（当前为 mock，仅记录日志）
+        try {
+            userService.forgotPassword(body.get("email"));
+        } catch (Exception ignored) {
+            // 故意忽略异常，防止通过错误响应枚举用户
+        }
+        return R.ok(Map.of("message", "如该邮箱已注册，重置链接将发送至您的邮箱"));
     }
 
     @PostMapping("/reset-password")

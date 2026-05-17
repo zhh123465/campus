@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  NButton, NSpin, NEmpty, NBadge, useMessage, NIcon
+  NSpin, NBadge, useMessage, NIcon
 } from 'naive-ui';
 import {
   HeartOutline, ChatbubbleOutline, ReturnDownBackOutline,
@@ -128,17 +128,34 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="notifications-layout" @scroll="handleScroll">
+  <div
+    class="notifications-layout"
+    @scroll="handleScroll"
+  >
     <div class="header-banner">
       <div class="banner-content">
-        <button class="action-btn back-btn" @click="router.back()" title="返回">
+        <button
+          class="action-btn back-btn"
+          title="返回"
+          @click="router.back()"
+        >
           <n-icon><ArrowBackOutline /></n-icon>
         </button>
         <h1 class="page-title gradient-text">
-          <n-icon size="32" class="title-icon"><NotificationsOutline /></n-icon>
+          <n-icon
+            size="32"
+            class="title-icon"
+          >
+            <NotificationsOutline />
+          </n-icon>
           通知中心
         </h1>
-        <n-badge v-if="unreadCount > 0" :value="unreadCount" type="error" class="unread-badge" />
+        <n-badge
+          v-if="unreadCount > 0"
+          :value="unreadCount"
+          type="error"
+          class="unread-badge"
+        />
       </div>
       <div class="header-actions">
         <button 
@@ -146,7 +163,9 @@ onMounted(async () => {
           :disabled="unreadCount === 0" 
           @click="handleMarkAllRead"
         >
-          <n-icon style="margin-right: 6px;"><CheckmarkDoneOutline /></n-icon>
+          <n-icon style="margin-right: 6px;">
+            <CheckmarkDoneOutline />
+          </n-icon>
           全部已读
         </button>
       </div>
@@ -154,18 +173,32 @@ onMounted(async () => {
 
     <div class="main-container">
       <div class="glass-card list-card">
-        <div v-if="loading && notifications.length === 0" class="loading-state">
+        <div
+          v-if="loading && notifications.length === 0"
+          class="loading-state"
+        >
           <n-spin size="large" />
           <p>加载中...</p>
         </div>
         
-        <div v-else-if="notifications.length === 0" class="empty-state">
-          <n-icon size="64" color="#30363d"><NotificationsOutline /></n-icon>
+        <div
+          v-else-if="notifications.length === 0"
+          class="empty-state"
+        >
+          <n-icon
+            size="64"
+            color="#30363d"
+          >
+            <NotificationsOutline />
+          </n-icon>
           <h3>暂无通知</h3>
           <p>什么时候才能收到你的消息呢？</p>
         </div>
 
-        <div v-else class="notif-list">
+        <div
+          v-else
+          class="notif-list"
+        >
           <div
             v-for="notif in notifications"
             :key="notif.id"
@@ -173,8 +206,16 @@ onMounted(async () => {
             :class="{ unread: !notif.isRead }"
             @click="handleClick(notif)"
           >
-            <div class="notif-icon-wrap" :style="{ backgroundColor: getTypeBg(notif.type), color: getTypeColor(notif.type) }">
-              <n-badge :show="!notif.isRead" dot type="error" :offset="[2, 2]">
+            <div
+              class="notif-icon-wrap"
+              :style="{ backgroundColor: getTypeBg(notif.type), color: getTypeColor(notif.type) }"
+            >
+              <n-badge
+                :show="!notif.isRead"
+                dot
+                type="error"
+                :offset="[2, 2]"
+              >
                 <n-icon size="24">
                   <component :is="getTypeIcon(notif.type)" />
                 </n-icon>
@@ -186,18 +227,26 @@ onMounted(async () => {
                 <span class="notif-title">{{ notif.title }}</span>
                 <span class="notif-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
               </div>
-              <p class="notif-desc">{{ notif.content }}</p>
+              <p class="notif-desc">
+                {{ notif.content }}
+              </p>
             </div>
           </div>
           
-          <div v-if="loading && notifications.length > 0" class="loading-more">
+          <div
+            v-if="loading && notifications.length > 0"
+            class="loading-more"
+          >
             <n-spin size="small" />
           </div>
           
-          <div v-if="!hasMore && notifications.length > 0" class="end-state">
-            <div class="divider"></div>
+          <div
+            v-if="!hasMore && notifications.length > 0"
+            class="end-state"
+          >
+            <div class="divider" />
             <span>— 到底了 —</span>
-            <div class="divider"></div>
+            <div class="divider" />
           </div>
         </div>
       </div>

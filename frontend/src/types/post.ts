@@ -62,8 +62,10 @@ export interface CreateCommentRequest {
 
 export interface PostPageRequest {
   scope?: string;
+  authorId?: number;
   sort?: string;
   cursor?: number;
+  cursorId?: number;
   limit?: number;
 }
 

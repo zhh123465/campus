@@ -1,5 +1,8 @@
 package com.campusforum.common;
 
+import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
+import cn.dev33.satoken.exception.NotRoleException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
@@ -14,6 +17,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public R<?> handleBusiness(BusinessException e) {
         return R.fail(e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(NotLoginException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public R<?> handleNotLogin(NotLoginException e) {
+        // Sa-Token 会在拦截器阶段抛出未登录异常；这里显式转成 401，避免被兜底处理成 500。
+        return R.fail(ErrorCode.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler({NotPermissionException.class, NotRoleException.class})
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public R<?> handleForbidden(Exception e) {
+        // 权限和角色校验失败都属于已认证但无操作权限，前端据此展示无权限状态。
+        return R.fail(ErrorCode.FORBIDDEN);
     }
 
     @ExceptionHandler(BindException.class)

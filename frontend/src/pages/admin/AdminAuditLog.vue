@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { ref, onMounted } from 'vue';
 import { NDataTable, NButton, NSelect, NInput, NSpace } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import { getAuditLogs } from '@/api/admin';
@@ -79,18 +79,51 @@ onMounted(() => loadLogs(true));
 
 <template>
   <div style="padding: 24px;">
-    <h2 style="margin-bottom: 16px;">审计日志</h2>
+    <h2 style="margin-bottom: 16px;">
+      审计日志
+    </h2>
 
     <NSpace style="margin-bottom: 16px;">
-      <NInput v-model:value="operatorId" placeholder="操作人 ID" style="width: 140px;" clearable />
-      <NSelect v-model:value="actionFilter" :options="actionOptions" placeholder="操作类型" style="width: 140px;" clearable />
-      <NButton type="primary" @click="search">搜索</NButton>
+      <NInput
+        v-model:value="operatorId"
+        placeholder="操作人 ID"
+        style="width: 140px;"
+        clearable
+      />
+      <NSelect
+        v-model:value="actionFilter"
+        :options="actionOptions"
+        placeholder="操作类型"
+        style="width: 140px;"
+        clearable
+      />
+      <NButton
+        type="primary"
+        @click="search"
+      >
+        搜索
+      </NButton>
     </NSpace>
 
-    <NDataTable :columns="columns" :data="logs" :loading="loading" :bordered="false" />
+    <NDataTable
+      :columns="columns"
+      :data="logs"
+      :loading="loading"
+      :bordered="false"
+    />
 
-    <div v-if="hasMore" style="text-align: center; padding: 16px;">
-      <NButton text type="primary" :loading="loading" @click="loadMore">加载更多</NButton>
+    <div
+      v-if="hasMore"
+      style="text-align: center; padding: 16px;"
+    >
+      <NButton
+        text
+        type="primary"
+        :loading="loading"
+        @click="loadMore"
+      >
+        加载更多
+      </NButton>
     </div>
   </div>
 </template>

@@ -1,5 +1,5 @@
 import { request } from './request';
-import type { AiRequest, AiResponse } from '@/types/ai';
+import type { AiResponse } from '@/types/ai';
 
 export async function aiSummarize(content: string): Promise<AiResponse> {
   const res = await request<AiResponse>({ method: 'POST', url: '/ai/summarize', data: { content } });

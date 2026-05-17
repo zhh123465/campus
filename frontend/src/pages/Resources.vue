@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NButton, NTag, NSpace, NSpin, NEmpty } from 'naive-ui';
+import { NCard, NButton, NTag, NSpin } from 'naive-ui';
 import { getResources } from '@/api/resources';
 import type { ResourceVO } from '@/types/resource';
 
@@ -9,7 +9,6 @@ const router = useRouter();
 const resources = ref<ResourceVO[]>([]);
 const loading = ref(false);
 const collegeFilter = ref<string | undefined>(undefined);
-const colleges = ref<string[]>([]);
 
 async function load() {
   loading.value = true;
@@ -18,13 +17,6 @@ async function load() {
       college: collegeFilter.value || undefined,
       limit: 30,
     });
-    if (!collegeFilter.value) {
-      const seen = new Set<string>();
-      resources.value.forEach((r) => {
-        if (r.college) seen.add(r.college);
-      });
-      // 不覆盖已选筛选
-    }
   } catch {
     resources.value = [];
   }
@@ -70,36 +62,74 @@ onMounted(load);
   <div class="resources-page">
     <div class="page-header">
       <h2>资源分享</h2>
-      <NButton type="primary" @click="goUpload">上传资源</NButton>
+      <NButton
+        type="primary"
+        @click="goUpload"
+      >
+        上传资源
+      </NButton>
     </div>
 
-    <div v-if="resources.length === 0 && !loading" class="empty">
+    <div
+      v-if="resources.length === 0 && !loading"
+      class="empty"
+    >
       <NEmpty description="暂无资源" />
     </div>
 
-    <div v-for="r in resources" :key="r.id" class="resource-card" @click="goDetail(r.id)">
+    <div
+      v-for="r in resources"
+      :key="r.id"
+      class="resource-card"
+      @click="goDetail(r.id)"
+    >
       <NCard>
         <div class="card-row">
-          <div class="file-icon">{{ typeIcons[r.fileType] || '📁' }}</div>
+          <div class="file-icon">
+            {{ typeIcons[r.fileType] || '📁' }}
+          </div>
           <div class="card-body">
-            <div class="file-name">{{ r.fileName }}</div>
+            <div class="file-name">
+              {{ r.fileName }}
+            </div>
             <div class="file-meta">
               <span>{{ formatSize(r.fileSize) }}</span>
               <span>{{ r.fileType.toUpperCase() }}</span>
               <span>{{ r.downloadCount }} 次下载</span>
               <span class="uploader-name">{{ r.uploader?.nickname || '未知' }}</span>
             </div>
-            <div v-if="r.tags?.length || r.college || r.major || r.course" class="file-tags">
-              <NTag v-if="r.college" size="tiny">{{ r.college }}</NTag>
-              <NTag v-if="r.major" size="tiny">{{ r.major }}</NTag>
-              <NTag v-if="r.course" size="tiny">{{ r.course }}</NTag>
+            <div
+              v-if="r.tags?.length || r.college || r.major || r.course"
+              class="file-tags"
+            >
+              <NTag
+                v-if="r.college"
+                size="tiny"
+              >
+                {{ r.college }}
+              </NTag>
+              <NTag
+                v-if="r.major"
+                size="tiny"
+              >
+                {{ r.major }}
+              </NTag>
+              <NTag
+                v-if="r.course"
+                size="tiny"
+              >
+                {{ r.course }}
+              </NTag>
             </div>
           </div>
         </div>
       </NCard>
     </div>
 
-    <div v-if="loading" class="loading">
+    <div
+      v-if="loading"
+      class="loading"
+    >
       <NSpin />
     </div>
   </div>

@@ -99,7 +99,12 @@ function cancel() {
           <template #header>
             <div style="display: flex; align-items: center; gap: 8px;">
               引用 @{{ quotedPost.author?.nickname || '匿名' }} 的帖子
-              <NButton size="tiny" text type="error" @click="quotedPost = null; quotePostId = undefined;">
+              <NButton
+                size="tiny"
+                text
+                type="error"
+                @click="quotedPost = null; quotePostId = undefined;"
+              >
                 取消引用
               </NButton>
             </div>
@@ -110,13 +115,28 @@ function cancel() {
           </div>
         </NAlert>
 
-        <NSelect v-model:value="postType" :options="typeOptions" />
+        <NSelect
+          v-model:value="postType"
+          :options="typeOptions"
+        />
 
-        <NInput v-model:value="title" placeholder="标题（可选）" class="field" maxlength="255" />
+        <NInput
+          v-model:value="title"
+          placeholder="标题（可选）"
+          class="field"
+          maxlength="255"
+        />
 
-        <div v-if="isQa" class="bounty-row">
+        <div
+          v-if="isQa"
+          class="bounty-row"
+        >
           <label>悬赏积分</label>
-          <NInputNumber v-model:value="bountyPoints" :min="0" :max="1000" />
+          <NInputNumber
+            v-model:value="bountyPoints"
+            :min="0"
+            :max="1000"
+          />
         </div>
 
         <NInput
@@ -135,15 +155,38 @@ function cancel() {
             class="topic-input"
             @keyup.enter="addTopic"
           />
-          <NButton size="small" @click="addTopic">添加</NButton>
+          <NButton
+            size="small"
+            @click="addTopic"
+          >
+            添加
+          </NButton>
         </div>
-        <NSpace v-if="topics.length > 0" class="topic-list">
-          <NTag v-for="t in topics" :key="t" closable @close="removeTopic(t)">{{ t }}</NTag>
+        <NSpace
+          v-if="topics.length > 0"
+          class="topic-list"
+        >
+          <NTag
+            v-for="t in topics"
+            :key="t"
+            closable
+            @close="removeTopic(t)"
+          >
+            {{ t }}
+          </NTag>
         </NSpace>
 
         <NSpace class="actions">
-          <NButton type="primary" :loading="loading" @click="submit">发布</NButton>
-          <NButton @click="cancel">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="loading"
+            @click="submit"
+          >
+            发布
+          </NButton>
+          <NButton @click="cancel">
+            取消
+          </NButton>
         </NSpace>
       </div>
     </NCard>

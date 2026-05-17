@@ -65,38 +65,72 @@ async function handleReset() {
 
 <template>
   <div class="forgot-page">
-    <NCard title="找回密码" class="forgot-card">
-      <NSteps :current="step" style="margin-bottom: 24px;">
+    <NCard
+      title="找回密码"
+      class="forgot-card"
+    >
+      <NSteps
+        :current="step"
+        style="margin-bottom: 24px;"
+      >
         <NStep title="验证身份" />
         <NStep title="重置密码" />
       </NSteps>
 
       <NForm v-if="step === 1">
         <NFormItem label="注册邮箱">
-          <NInput v-model:value="email" placeholder="请输入注册时使用的邮箱" />
+          <NInput
+            v-model:value="email"
+            placeholder="请输入注册时使用的邮箱"
+          />
         </NFormItem>
-        <NButton type="primary" block :loading="loading" @click="handleSendCode">
+        <NButton
+          type="primary"
+          block
+          :loading="loading"
+          @click="handleSendCode"
+        >
           获取重置令牌
         </NButton>
       </NForm>
 
       <NForm v-else>
         <NFormItem label="新密码">
-          <NInput v-model:value="newPassword" type="password" placeholder="请输入新密码" />
+          <NInput
+            v-model:value="newPassword"
+            type="password"
+            placeholder="请输入新密码"
+          />
         </NFormItem>
         <NFormItem label="确认密码">
-          <NInput v-model:value="confirmPassword" type="password" placeholder="请再次输入新密码" />
+          <NInput
+            v-model:value="confirmPassword"
+            type="password"
+            placeholder="请再次输入新密码"
+          />
         </NFormItem>
-        <NButton type="primary" block :loading="loading" @click="handleReset">
+        <NButton
+          type="primary"
+          block
+          :loading="loading"
+          @click="handleReset"
+        >
           重置密码
         </NButton>
-        <NButton text block style="margin-top: 8px;" @click="step = 1">
+        <NButton
+          text
+          block
+          style="margin-top: 8px;"
+          @click="step = 1"
+        >
           返回上一步
         </NButton>
       </NForm>
 
       <div class="link-text">
-        <router-link to="/login">返回登录</router-link>
+        <router-link to="/login">
+          返回登录
+        </router-link>
       </div>
     </NCard>
   </div>

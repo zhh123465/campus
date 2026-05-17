@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NTag, NSpace, NSpin, NInput, NEmpty, useMessage } from 'naive-ui';
+import { NCard, NButton, NTag, NSpin, NInput, NEmpty, useMessage } from 'naive-ui';
 import { getChallengeById, checkin, getRecords, getLeaderboard, deleteChallenge, shareCheckinRecord } from '@/api/checkin';
 import { useAuthStore } from '@/stores/auth';
 import type { CheckinChallengeVO, CheckinRecordVO, LeaderboardEntry } from '@/types/checkin';
@@ -86,7 +86,9 @@ onMounted(load);
 <template>
   <div class="detail-page">
     <template v-if="loading">
-      <div class="loading"><NSpin /></div>
+      <div class="loading">
+        <NSpin />
+      </div>
     </template>
 
     <template v-else-if="challenge">
@@ -94,16 +96,36 @@ onMounted(load);
         <div class="info-header">
           <div>
             <h2>{{ challenge.name }}</h2>
-            <NTag :type="isActive ? 'success' : 'default'" size="small">
+            <NTag
+              :type="isActive ? 'success' : 'default'"
+              size="small"
+            >
               {{ isActive ? '进行中' : '已结束' }}
             </NTag>
           </div>
           <div class="header-actions">
-            <NButton size="small" @click="goBack">返回列表</NButton>
-            <NButton v-if="isCreator" type="error" size="small" @click="handleDelete">删除</NButton>
+            <NButton
+              size="small"
+              @click="goBack"
+            >
+              返回列表
+            </NButton>
+            <NButton
+              v-if="isCreator"
+              type="error"
+              size="small"
+              @click="handleDelete"
+            >
+              删除
+            </NButton>
           </div>
         </div>
-        <p v-if="challenge.description" class="challenge-desc">{{ challenge.description }}</p>
+        <p
+          v-if="challenge.description"
+          class="challenge-desc"
+        >
+          {{ challenge.description }}
+        </p>
         <div class="stats">
           <span>{{ challenge.startDate }} ~ {{ challenge.endDate }}</span>
           <span>{{ challenge.memberCount }} 人参与</span>
@@ -111,7 +133,10 @@ onMounted(load);
         </div>
 
         <!-- 我的统计 -->
-        <div v-if="challenge.isMember" class="my-stats">
+        <div
+          v-if="challenge.isMember"
+          class="my-stats"
+        >
           <div class="stat-item">
             <span class="stat-num">{{ challenge.myTotalDays }}</span>
             <span class="stat-label">总打卡</span>
@@ -124,7 +149,11 @@ onMounted(load);
       </NCard>
 
       <!-- 今日打卡 -->
-      <NCard v-if="isActive && challenge.isMember" title="今日打卡" class="checkin-card">
+      <NCard
+        v-if="isActive && challenge.isMember"
+        title="今日打卡"
+        class="checkin-card"
+      >
         <div class="checkin-form">
           <NInput
             v-model:value="checkinContent"
@@ -132,12 +161,20 @@ onMounted(load);
             placeholder="记录今天的打卡内容..."
             :autosize="{ minRows: 2, maxRows: 4 }"
           />
-          <NButton type="primary" :loading="submitting" @click="handleCheckin" class="checkin-btn">
+          <NButton
+            type="primary"
+            :loading="submitting"
+            class="checkin-btn"
+            @click="handleCheckin"
+          >
             打卡
           </NButton>
         </div>
       </NCard>
-      <div v-else-if="isActive && !challenge.isMember" class="checkin-hint">
+      <div
+        v-else-if="isActive && !challenge.isMember"
+        class="checkin-hint"
+      >
         <NCard>
           <p>开始你的第一次打卡，加入这个挑战吧！</p>
           <div class="checkin-form">
@@ -147,7 +184,12 @@ onMounted(load);
               placeholder="写下你的第一条打卡..."
               :autosize="{ minRows: 2, maxRows: 4 }"
             />
-            <NButton type="primary" :loading="submitting" @click="handleCheckin" class="checkin-btn">
+            <NButton
+              type="primary"
+              :loading="submitting"
+              class="checkin-btn"
+              @click="handleCheckin"
+            >
               首次打卡
             </NButton>
           </div>
@@ -155,31 +197,77 @@ onMounted(load);
       </div>
 
       <!-- 排行榜 -->
-      <NCard title="排行榜" class="leaderboard-card">
-        <div v-if="leaderboard.length === 0" class="no-data">暂无数据</div>
-        <div v-for="(entry, i) in leaderboard" :key="entry.userId" class="lb-item">
-          <span class="lb-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
-          <div class="lb-avatar">{{ entry.userName?.charAt(0) || '?' }}</div>
+      <NCard
+        title="排行榜"
+        class="leaderboard-card"
+      >
+        <div
+          v-if="leaderboard.length === 0"
+          class="no-data"
+        >
+          暂无数据
+        </div>
+        <div
+          v-for="(entry, i) in leaderboard"
+          :key="entry.userId"
+          class="lb-item"
+        >
+          <span
+            class="lb-rank"
+            :class="{ top: i < 3 }"
+          >{{ i + 1 }}</span>
+          <div class="lb-avatar">
+            {{ entry.userName?.charAt(0) || '?' }}
+          </div>
           <span class="lb-name">{{ entry.userName }}</span>
           <span class="lb-stats">{{ entry.totalDays }} 天 | 连续 {{ entry.currentStreak }} 天</span>
         </div>
       </NCard>
 
       <!-- 打卡记录 -->
-      <NCard title="最近打卡" class="records-card">
-        <div v-if="records.length === 0" class="no-data">暂无记录</div>
-        <div v-for="r in records" :key="r.id" class="record-item">
-          <div class="record-avatar">{{ r.user?.nickname?.charAt(0) || '?' }}</div>
+      <NCard
+        title="最近打卡"
+        class="records-card"
+      >
+        <div
+          v-if="records.length === 0"
+          class="no-data"
+        >
+          暂无记录
+        </div>
+        <div
+          v-for="r in records"
+          :key="r.id"
+          class="record-item"
+        >
+          <div class="record-avatar">
+            {{ r.user?.nickname?.charAt(0) || '?' }}
+          </div>
           <div class="record-body">
             <div class="record-header">
               <span class="record-user">{{ r.user?.nickname || '未知' }}</span>
               <span class="record-date">{{ r.checkinDate }}</span>
             </div>
-            <p v-if="r.content" class="record-content">{{ r.content }}</p>
-            <NTag v-if="r.aiCheck === 0" type="warning" size="tiny" style="margin-top: 4px">
+            <p
+              v-if="r.content"
+              class="record-content"
+            >
+              {{ r.content }}
+            </p>
+            <NTag
+              v-if="r.aiCheck === 0"
+              type="warning"
+              size="tiny"
+              style="margin-top: 4px"
+            >
               AI 提醒：内容可能不符合挑战主题
             </NTag>
-            <NTag v-else-if="r.aiCheck === 1" type="success" size="tiny" style="margin-top: 4px">
+            <NTag
+              v-else-if="r.aiCheck === 1"
+              type="success"
+              size="tiny"
+              style="margin-top: 4px"
+            >
               AI 检测：内容符合主题
             </NTag>
             <NButton

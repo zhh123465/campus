@@ -16,6 +16,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,13 +26,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ResourceService {
 
     private final ResourceMapper resourceMapper;
@@ -39,11 +42,34 @@ public class ResourceService {
     private final StorageService storageService;
     private final ObjectMapper objectMapper;
 
+    // SEC-03: 从配置文件读取文件扩展名白名单
+    private final Set<String> allowedExtensions;
+
+    public ResourceService(ResourceMapper resourceMapper, UserMapper userMapper,
+                           StorageService storageService, ObjectMapper objectMapper,
+                           @Value("${upload.allowed-extensions:pdf,doc,docx,ppt,pptx,xls,xlsx,zip,rar,7z,jpg,jpeg,png,gif,webp}") String allowedExtensionsConfig) {
+        this.resourceMapper = resourceMapper;
+        this.userMapper = userMapper;
+        this.storageService = storageService;
+        this.objectMapper = objectMapper;
+        this.allowedExtensions = Arrays.stream(allowedExtensionsConfig.split(","))
+                .map(String::trim).map(String::toLowerCase)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     @Transactional
     public ResourceVO upload(Long userId, MultipartFile file, UploadResourceRequest req) {
         String originalName = file.getOriginalFilename();
         if (originalName == null || originalName.isBlank()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "文件名为空");
+        }
+
+        // SEC-03: 校验文件扩展名白名单，防止上传可执行/危险文件
+        int dot = originalName.lastIndexOf('.');
+        String ext = dot >= 0 ? originalName.substring(dot + 1).toLowerCase() : "";
+        if (ext.isBlank() || !allowedExtensions.contains(ext)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(),
+                    "不支持的文件类型：." + ext + "，允许的类型：" + String.join(", ", allowedExtensions));
         }
 
         byte[] fileBytes;
@@ -66,10 +92,6 @@ public class ResourceService {
 
         String storageKey;
         storageKey = storageService.upload(new ByteArrayInputStream(fileBytes), originalName, file.getContentType());
-
-        String ext = "";
-        int dot = originalName.lastIndexOf('.');
-        if (dot >= 0) ext = originalName.substring(dot + 1).toLowerCase();
 
         Resource resource = new Resource();
         resource.setUploaderId(userId);

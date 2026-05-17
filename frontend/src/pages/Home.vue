@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { 
@@ -17,7 +16,7 @@ const authStore = useAuthStore();
 
 const navLinks = [
   { name: '首页', path: '/', active: true },
-  { name: '学习空间', path: '/spaces', active: false },
+  { name: '星际部落', path: '/spaces', active: false },
   { name: '帖子', path: '/square', active: false },
   { name: '打卡', path: '/checkin', active: false },
   { name: '排行榜', path: '/points', active: false },
@@ -28,7 +27,7 @@ const stats = [
   { label: '高校已入驻', value: '128+', icon: SchoolOutline, color: '#38bdf8' },
   { label: '注册用户', value: '56,231+', icon: PeopleOutline, color: '#2dd4bf' },
   { label: '帖子总数', value: '324,112+', icon: ChatbubblesOutline, color: '#c084fc' },
-  { label: '学习空间', value: '12,421+', icon: PlanetOutline, color: '#f472b6' },
+  { label: '星际部落', value: '12,421+', icon: PlanetOutline, color: '#f472b6' },
   { label: '今日打卡', value: '8,931+', icon: CheckmarkCircleOutline, color: '#fb923c' },
 ];
 
@@ -46,30 +45,64 @@ const hotSpaces = [
     <nav class="navbar">
       <div class="nav-left">
         <div class="logo">
-          <n-icon size="24" color="#6366f1"><PlanetOutline /></n-icon>
+          <n-icon
+            size="24"
+            color="#6366f1"
+          >
+            <PlanetOutline />
+          </n-icon>
           <span>CampusForum</span>
         </div>
         <div class="nav-links">
-          <a v-for="link in navLinks" :key="link.name" 
-             :class="{ active: link.active }"
-             @click="router.push(link.path)">
+          <a
+            v-for="link in navLinks"
+            :key="link.name" 
+            :class="{ active: link.active }"
+            @click="router.push(link.path)"
+          >
             {{ link.name }}
           </a>
         </div>
       </div>
       <div class="nav-right">
-        <n-input round placeholder="搜索帖子、用户或空间" class="search-input">
+        <n-input
+          round
+          placeholder="搜索帖子、用户或空间"
+          class="search-input"
+        >
           <template #prefix>
             <n-icon><SearchOutline /></n-icon>
           </template>
         </n-input>
         <template v-if="authStore.isLoggedIn">
-          <n-button text class="login-btn" @click="router.push('/square')">进入社区</n-button>
-          <button class="neon-btn register-btn" @click="router.push('/profile')">个人中心</button>
+          <n-button
+            text
+            class="login-btn"
+            @click="router.push('/square')"
+          >
+            进入社区
+          </n-button>
+          <button
+            class="neon-btn register-btn"
+            @click="router.push('/profile')"
+          >
+            个人中心
+          </button>
         </template>
         <template v-else>
-          <n-button text class="login-btn" @click="router.push('/login')">登录</n-button>
-          <button class="neon-btn register-btn" @click="router.push('/register')">注册</button>
+          <n-button
+            text
+            class="login-btn"
+            @click="router.push('/login')"
+          >
+            登录
+          </n-button>
+          <button
+            class="neon-btn register-btn"
+            @click="router.push('/register')"
+          >
+            注册
+          </button>
         </template>
       </div>
     </nav>
@@ -77,32 +110,69 @@ const hotSpaces = [
     <!-- Hero Section -->
     <main class="hero-section">
       <div class="hero-content">
-        <div class="tag">多租户开源高校学习社群平台</div>
-        <h1 class="hero-title">CampusForum</h1>
-        <h2 class="hero-subtitle">连接 <span class="dot">·</span> 学习 <span class="dot">·</span> 分享 <span class="dot">·</span> 成长</h2>
+        <div class="tag">
+          多租户开源高校学习社群平台
+        </div>
+        <h1 class="hero-title">
+          CampusForum
+        </h1>
+        <h2 class="hero-subtitle">
+          连接 <span class="dot">·</span> 学习 <span class="dot">·</span> 分享 <span class="dot">·</span> 成长
+        </h2>
         <p class="hero-desc">
-          专为高校打造的学习社群平台，支撑多学习空间、打卡系统、积分成就、AI 助手等丰富功能，助力学习与成长。
+          专为高校打造的互动社群平台，支撑多部落、打卡系统、积分成就、AI 助手等丰富功能，助力学习与成长。
         </p>
         <div class="hero-actions">
-          <button v-if="authStore.isLoggedIn" class="neon-btn large" @click="router.push('/square')">进入社区</button>
-          <button v-else class="neon-btn large" @click="router.push('/register')">立即加入</button>
-          <button class="outline-btn large">了解更多</button>
+          <button
+            v-if="authStore.isLoggedIn"
+            class="neon-btn large"
+            @click="router.push('/square')"
+          >
+            进入社区
+          </button>
+          <button
+            v-else
+            class="neon-btn large"
+            @click="router.push('/register')"
+          >
+            立即加入
+          </button>
+          <button class="outline-btn large">
+            了解更多
+          </button>
         </div>
       </div>
       <div class="hero-image">
-        <img :src="campusHeroImg" alt="Campus 3D Illustration" class="floating-img" />
+        <img
+          :src="campusHeroImg"
+          alt="Campus 3D Illustration"
+          class="floating-img"
+        />
       </div>
     </main>
 
     <!-- Stats Section -->
     <div class="stats-container">
-      <div v-for="stat in stats" :key="stat.label" class="glass-card stat-card">
-        <div class="stat-icon" :style="{ backgroundColor: stat.color + '20', color: stat.color }">
-          <n-icon size="24"><component :is="stat.icon" /></n-icon>
+      <div
+        v-for="stat in stats"
+        :key="stat.label"
+        class="glass-card stat-card"
+      >
+        <div
+          class="stat-icon"
+          :style="{ backgroundColor: stat.color + '20', color: stat.color }"
+        >
+          <n-icon size="24">
+            <component :is="stat.icon" />
+          </n-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-label">{{ stat.label }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-label">
+            {{ stat.label }}
+          </div>
         </div>
       </div>
     </div>
@@ -111,16 +181,36 @@ const hotSpaces = [
     <div class="hot-spaces-section">
       <div class="section-header">
         <div class="title-wrap">
-          <n-icon size="24" color="#38bdf8"><PlanetOutline /></n-icon>
-          <h3>热门学习空间</h3>
+          <n-icon
+            size="24"
+            color="#38bdf8"
+          >
+            <PlanetOutline />
+          </n-icon>
+          <h3>热门部落</h3>
         </div>
-        <a class="view-all" @click="router.push('/spaces')">查看全部 ></a>
+        <a
+          class="view-all"
+          @click="router.push('/spaces')"
+        >查看全部 ></a>
       </div>
       <div class="spaces-grid">
-        <div v-for="space in hotSpaces" :key="space.name" class="glass-card space-card">
+        <div
+          v-for="space in hotSpaces"
+          :key="space.name"
+          class="glass-card space-card"
+        >
           <div class="space-header">
-            <div class="space-icon" :style="{ backgroundColor: space.color }">
-              <n-icon size="24" color="#fff"><SchoolOutline /></n-icon>
+            <div
+              class="space-icon"
+              :style="{ backgroundColor: space.color }"
+            >
+              <n-icon
+                size="24"
+                color="#fff"
+              >
+                <SchoolOutline />
+              </n-icon>
             </div>
             <div class="space-title">
               <h4>{{ space.name }}</h4>
@@ -134,11 +224,22 @@ const hotSpaces = [
           </div>
           <div class="space-footer">
             <div class="avatars">
-              <div class="avatar" style="background: #ef4444"></div>
-              <div class="avatar" style="background: #3b82f6"></div>
-              <div class="avatar" style="background: #10b981"></div>
+              <div
+                class="avatar"
+                style="background: #ef4444"
+              />
+              <div
+                class="avatar"
+                style="background: #3b82f6"
+              />
+              <div
+                class="avatar"
+                style="background: #10b981"
+              />
             </div>
-            <div class="tag">{{ space.type }}</div>
+            <div class="tag">
+              {{ space.type }}
+            </div>
           </div>
         </div>
       </div>

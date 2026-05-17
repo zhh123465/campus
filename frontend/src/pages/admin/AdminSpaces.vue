@@ -131,19 +131,56 @@ onMounted(() => loadSpaces(true));
 
 <template>
   <div style="padding: 24px;">
-    <h2 style="margin-bottom: 16px;">空间管理</h2>
+    <h2 style="margin-bottom: 16px;">
+      空间管理
+    </h2>
 
     <NSpace style="margin-bottom: 16px;">
-      <NInput v-model:value="keyword" placeholder="搜索空间名称" style="width: 200px;" clearable />
-      <NSelect v-model:value="categoryFilter" :options="categoryOptions" placeholder="分类" style="width: 100px;" />
-      <NSelect v-model:value="statusFilter" :options="statusOptions" placeholder="状态" style="width: 100px;" />
-      <NButton type="primary" @click="search">搜索</NButton>
+      <NInput
+        v-model:value="keyword"
+        placeholder="搜索空间名称"
+        style="width: 200px;"
+        clearable
+      />
+      <NSelect
+        v-model:value="categoryFilter"
+        :options="categoryOptions"
+        placeholder="分类"
+        style="width: 100px;"
+      />
+      <NSelect
+        v-model:value="statusFilter"
+        :options="statusOptions"
+        placeholder="状态"
+        style="width: 100px;"
+      />
+      <NButton
+        type="primary"
+        @click="search"
+      >
+        搜索
+      </NButton>
     </NSpace>
 
-    <NDataTable :columns="columns" :data="spaces" :loading="loading" :bordered="false" />
+    <NDataTable
+      :columns="columns"
+      :data="spaces"
+      :loading="loading"
+      :bordered="false"
+    />
 
-    <div v-if="hasMore" style="text-align: center; padding: 16px;">
-      <NButton text type="primary" :loading="loading" @click="loadMore">加载更多</NButton>
+    <div
+      v-if="hasMore"
+      style="text-align: center; padding: 16px;"
+    >
+      <NButton
+        text
+        type="primary"
+        :loading="loading"
+        @click="loadMore"
+      >
+        加载更多
+      </NButton>
     </div>
   </div>
 </template>

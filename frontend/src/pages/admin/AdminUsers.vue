@@ -168,36 +168,93 @@ onMounted(() => loadUsers(true));
 
 <template>
   <div style="padding: 24px;">
-    <h2 style="margin-bottom: 16px;">用户管理</h2>
+    <h2 style="margin-bottom: 16px;">
+      用户管理
+    </h2>
 
     <NSpace style="margin-bottom: 16px;">
-      <NInput v-model:value="keyword" placeholder="搜索昵称/邮箱/学号" style="width: 240px;" clearable />
-      <NSelect v-model:value="roleFilter" :options="roleOptions" placeholder="角色" style="width: 120px;" clearable />
-      <NSelect v-model:value="statusFilter" :options="statusOptions" placeholder="状态" style="width: 110px;" />
-      <NButton type="primary" @click="search">搜索</NButton>
+      <NInput
+        v-model:value="keyword"
+        placeholder="搜索昵称/邮箱/学号"
+        style="width: 240px;"
+        clearable
+      />
+      <NSelect
+        v-model:value="roleFilter"
+        :options="roleOptions"
+        placeholder="角色"
+        style="width: 120px;"
+        clearable
+      />
+      <NSelect
+        v-model:value="statusFilter"
+        :options="statusOptions"
+        placeholder="状态"
+        style="width: 110px;"
+      />
+      <NButton
+        type="primary"
+        @click="search"
+      >
+        搜索
+      </NButton>
     </NSpace>
 
-    <NSpace v-if="checkedRowKeys.length" style="margin-bottom: 12px;">
+    <NSpace
+      v-if="checkedRowKeys.length"
+      style="margin-bottom: 12px;"
+    >
       <span>已选 {{ checkedRowKeys.length }} 项</span>
-      <NButton size="small" type="warning" @click="batchBan">批量封禁</NButton>
-      <NButton size="small" type="success" @click="batchUnban">批量解禁</NButton>
+      <NButton
+        size="small"
+        type="warning"
+        @click="batchBan"
+      >
+        批量封禁
+      </NButton>
+      <NButton
+        size="small"
+        type="success"
+        @click="batchUnban"
+      >
+        批量解禁
+      </NButton>
     </NSpace>
 
     <NDataTable
+      v-model:checked-row-keys="checkedRowKeys"
       :columns="columns"
       :data="users"
       :loading="loading"
       :bordered="false"
       :row-key="(row: AdminUserItem) => row.id"
-      v-model:checked-row-keys="checkedRowKeys"
     />
 
-    <div v-if="hasMore" style="text-align: center; padding: 16px;">
-      <NButton text type="primary" :loading="loading" @click="loadMore">加载更多</NButton>
+    <div
+      v-if="hasMore"
+      style="text-align: center; padding: 16px;"
+    >
+      <NButton
+        text
+        type="primary"
+        :loading="loading"
+        @click="loadMore"
+      >
+        加载更多
+      </NButton>
     </div>
 
-    <NModal v-model:show="roleModalShow" title="修改角色" preset="dialog" positive-text="确认" @positive-click="handleChangeRole">
-      <NSelect v-model:value="selectedRole" :options="roleOptions" />
+    <NModal
+      v-model:show="roleModalShow"
+      title="修改角色"
+      preset="dialog"
+      positive-text="确认"
+      @positive-click="handleChangeRole"
+    >
+      <NSelect
+        v-model:value="selectedRole"
+        :options="roleOptions"
+      />
     </NModal>
   </div>
 </template>

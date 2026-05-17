@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NInput, NTag, NSpin, NEmpty, useMessage, NIcon } from 'naive-ui'
+import { NInput, NTag, NSpin, useMessage, NIcon } from 'naive-ui'
 import { 
   ChatbubblesOutline, 
   ArrowBackOutline, 
@@ -99,6 +99,12 @@ onMounted(async () => {
   pollTimer = setInterval(loadConversations, 5000)
 })
 
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+  }
+})
+
 watch(() => route.query.peer, (val) => {
   if (val) {
     loadChat(Number(val))
@@ -114,26 +120,49 @@ watch(() => route.query.peer, (val) => {
     <!-- 对话列表 -->
     <template v-if="!activePeerId">
       <div class="header-banner">
-        <button class="action-btn back-btn" @click="router.back()" title="返回">
+        <button
+          class="action-btn back-btn"
+          title="返回"
+          @click="router.back()"
+        >
           <n-icon><ArrowBackOutline /></n-icon>
         </button>
         <h1 class="page-title gradient-text">
-          <n-icon size="32" class="title-icon"><ChatbubblesOutline /></n-icon>
+          <n-icon
+            size="32"
+            class="title-icon"
+          >
+            <ChatbubblesOutline />
+          </n-icon>
           消息中心
         </h1>
       </div>
 
       <div class="main-container">
         <div class="glass-card list-card">
-          <div v-if="loading" class="loading-state">
+          <div
+            v-if="loading"
+            class="loading-state"
+          >
             <n-spin size="large" />
           </div>
-          <div v-else-if="conversations.length === 0" class="empty-state">
-            <n-icon size="64" color="#30363d"><ChatbubblesOutline /></n-icon>
+          <div
+            v-else-if="conversations.length === 0"
+            class="empty-state"
+          >
+            <n-icon
+              size="64"
+              color="#30363d"
+            >
+              <ChatbubblesOutline />
+            </n-icon>
             <h3>暂无消息</h3>
             <p>去广场找人聊聊吧</p>
           </div>
-          <div v-else class="conv-list">
+          <div
+            v-else
+            class="conv-list"
+          >
             <div
               v-for="msg in conversations"
               :key="msg.id"
@@ -149,8 +178,18 @@ watch(() => route.query.peer, (val) => {
                   <span class="conv-time">{{ new Date(msg.createdAt).toLocaleDateString() }}</span>
                 </div>
                 <div class="conv-footer">
-                  <p class="conv-preview">{{ msg.content || '[图片]' }}</p>
-                  <n-tag v-if="!msg.isRead && msg.senderId !== currentUserId" type="error" size="small" round class="unread-tag">新</n-tag>
+                  <p class="conv-preview">
+                    {{ msg.content || '[图片]' }}
+                  </p>
+                  <n-tag
+                    v-if="!msg.isRead && msg.senderId !== currentUserId"
+                    type="error"
+                    size="small"
+                    round
+                    class="unread-tag"
+                  >
+                    新
+                  </n-tag>
                 </div>
               </div>
             </div>
@@ -163,36 +202,66 @@ watch(() => route.query.peer, (val) => {
     <template v-else>
       <div class="chat-container">
         <div class="chat-header glass-card">
-          <button class="action-btn back-btn" @click="backToList">
+          <button
+            class="action-btn back-btn"
+            @click="backToList"
+          >
             <n-icon><ArrowBackOutline /></n-icon>
           </button>
           <div class="chat-peer-info">
-            <div class="peer-avatar">{{ activePeerName.charAt(0) }}</div>
+            <div class="peer-avatar">
+              {{ activePeerName.charAt(0) }}
+            </div>
             <span class="peer-name">{{ activePeerName }}</span>
           </div>
         </div>
 
-        <div class="chat-messages" ref="chatContainer">
-          <div v-if="chatLoading" class="loading-state">
+        <div
+          ref="chatContainer"
+          class="chat-messages"
+        >
+          <div
+            v-if="chatLoading"
+            class="loading-state"
+          >
             <n-spin size="large" />
           </div>
-          <div v-else-if="chatMessages.length === 0" class="empty-state">
-            <n-icon size="64" color="#30363d"><ChatbubblesOutline /></n-icon>
+          <div
+            v-else-if="chatMessages.length === 0"
+            class="empty-state"
+          >
+            <n-icon
+              size="64"
+              color="#30363d"
+            >
+              <ChatbubblesOutline />
+            </n-icon>
             <p>暂无消息，发送一条吧</p>
           </div>
-          <div v-else class="message-list">
+          <div
+            v-else
+            class="message-list"
+          >
             <div
               v-for="m in chatMessages"
               :key="m.id"
               class="chat-bubble-wrapper"
               :class="{ mine: m.senderId === currentUserId }"
             >
-              <div class="bubble-avatar" v-if="m.senderId !== currentUserId">
+              <div
+                v-if="m.senderId !== currentUserId"
+                class="bubble-avatar"
+              >
                 {{ m.sender?.nickname?.charAt(0) || '?' }}
               </div>
               <div class="bubble-content">
                 <div class="bubble-box">
-                  <p v-if="m.content" class="bubble-text">{{ m.content }}</p>
+                  <p
+                    v-if="m.content"
+                    class="bubble-text"
+                  >
+                    {{ m.content }}
+                  </p>
                   <img
                     v-if="m.imageUrl"
                     :src="m.imageUrl"
@@ -201,7 +270,10 @@ watch(() => route.query.peer, (val) => {
                 </div>
                 <span class="bubble-time">{{ new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
               </div>
-              <div class="bubble-avatar mine" v-if="m.senderId === currentUserId">
+              <div
+                v-if="m.senderId === currentUserId"
+                class="bubble-avatar mine"
+              >
                 我
               </div>
             </div>
@@ -211,7 +283,11 @@ watch(() => route.query.peer, (val) => {
         <div class="chat-input-area glass-card">
           <div class="input-actions">
             <!-- 预留图片上传按钮 -->
-            <button class="icon-btn"><n-icon size="22"><ImageOutline /></n-icon></button>
+            <button class="icon-btn">
+              <n-icon size="22">
+                <ImageOutline />
+              </n-icon>
+            </button>
           </div>
           <n-input
             v-model:value="textInput"
@@ -221,9 +297,22 @@ watch(() => route.query.peer, (val) => {
             class="custom-input"
             @keydown.enter.prevent="handleSend"
           />
-          <button class="neon-btn send-btn" :disabled="sending || !textInput.trim()" @click="handleSend">
-            <n-icon size="18" v-if="!sending"><SendOutline /></n-icon>
-            <n-spin size="small" v-else stroke="white" />
+          <button
+            class="neon-btn send-btn"
+            :disabled="sending || !textInput.trim()"
+            @click="handleSend"
+          >
+            <n-icon
+              v-if="!sending"
+              size="18"
+            >
+              <SendOutline />
+            </n-icon>
+            <n-spin
+              v-else
+              size="small"
+              stroke="white"
+            />
           </button>
         </div>
       </div>

@@ -97,18 +97,47 @@ onMounted(loadWords);
   <div class="admin-sw">
     <div class="page-header">
       <h2>敏感词管理</h2>
-      <NButton type="primary" size="small" @click="addModalShow = true">添加</NButton>
+      <NButton
+        type="primary"
+        size="small"
+        @click="addModalShow = true"
+      >
+        添加
+      </NButton>
     </div>
 
-    <NDataTable :columns="columns" :data="words" :loading="loading" :bordered="false" />
+    <NDataTable
+      :columns="columns"
+      :data="words"
+      :loading="loading"
+      :bordered="false"
+    />
 
-    <NModal v-model:show="addModalShow" title="添加敏感词">
+    <NModal
+      v-model:show="addModalShow"
+      title="添加敏感词"
+    >
       <div style="padding: 16px; width: 360px;">
-        <NInput v-model:value="addWord" placeholder="输入敏感词" style="margin-bottom: 12px;" />
-        <NSelect v-model:value="addLevel" :options="levelOptions" placeholder="敏感等级" />
+        <NInput
+          v-model:value="addWord"
+          placeholder="输入敏感词"
+          style="margin-bottom: 12px;"
+        />
+        <NSelect
+          v-model:value="addLevel"
+          :options="levelOptions"
+          placeholder="敏感等级"
+        />
         <NSpace style="margin-top: 16px; justify-content: flex-end;">
-          <NButton @click="addModalShow = false">取消</NButton>
-          <NButton type="primary" @click="handleAdd">确认</NButton>
+          <NButton @click="addModalShow = false">
+            取消
+          </NButton>
+          <NButton
+            type="primary"
+            @click="handleAdd"
+          >
+            确认
+          </NButton>
         </NSpace>
       </div>
     </NModal>

@@ -66,26 +66,59 @@ function cancel() {
         >
           <NButton>选择文件</NButton>
         </NUpload>
-        <div v-if="file" class="selected-file">已选: {{ file.name }} ({{ (file.size / 1024 / 1024).toFixed(1) }} MB)</div>
+        <div
+          v-if="file"
+          class="selected-file"
+        >
+          已选: {{ file.name }} ({{ (file.size / 1024 / 1024).toFixed(1) }} MB)
+        </div>
 
         <label>可见性</label>
-        <NSelect v-model:value="visibility" :options="visibilityOptions" />
+        <NSelect
+          v-model:value="visibility"
+          :options="visibilityOptions"
+        />
 
         <label>学院</label>
-        <NInput v-model:value="college" placeholder="例如：计算机学院" maxlength="64" />
+        <NInput
+          v-model:value="college"
+          placeholder="例如：计算机学院"
+          maxlength="64"
+        />
 
         <label>专业</label>
-        <NInput v-model:value="major" placeholder="例如：软件工程" maxlength="64" />
+        <NInput
+          v-model:value="major"
+          placeholder="例如：软件工程"
+          maxlength="64"
+        />
 
         <label>课程</label>
-        <NInput v-model:value="course" placeholder="例如：Java程序设计" maxlength="128" />
+        <NInput
+          v-model:value="course"
+          placeholder="例如：Java程序设计"
+          maxlength="128"
+        />
 
         <label>描述</label>
-        <NInput v-model:value="description" type="textarea" placeholder="简单描述资源内容..." maxlength="500" />
+        <NInput
+          v-model:value="description"
+          type="textarea"
+          placeholder="简单描述资源内容..."
+          maxlength="500"
+        />
 
         <div class="actions">
-          <NButton type="primary" :loading="loading" @click="submit">上传</NButton>
-          <NButton @click="cancel">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="loading"
+            @click="submit"
+          >
+            上传
+          </NButton>
+          <NButton @click="cancel">
+            取消
+          </NButton>
         </div>
       </div>
     </NCard>

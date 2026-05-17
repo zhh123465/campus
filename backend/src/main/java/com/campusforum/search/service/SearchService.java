@@ -58,39 +58,84 @@ public class SearchService {
 
     private List<SearchResultVO> searchPosts(String keyword, String sort, Long cursor, int limit) {
         // Try MeiliSearch first, fall back to MySQL FULLTEXT
-        List<SearchResultVO> meiliResults = searchPostsViaMeiliSearch(keyword, limit);
-        if (!meiliResults.isEmpty()) {
-            return meiliResults;
+        try {
+            List<SearchResultVO> meiliResults = searchPostsViaMeiliSearch(keyword, limit);
+            if (!meiliResults.isEmpty()) {
+                return meiliResults;
+            }
+        } catch (Exception e) {
+            log.warn("MeiliSearch unavailable, falling back to MySQL FULLTEXT: {}", e.getMessage());
         }
 
-        LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
-        qw.eq(Post::getStatus, 1);
-        qw.apply("MATCH(title, content) AGAINST({0} IN NATURAL LANGUAGE MODE)", keyword);
-        if (cursor != null) {
-            qw.lt(Post::getId, cursor);
-        }
-        if ("time".equals(sort)) {
-            qw.orderByDesc(Post::getCreatedAt);
-        } else {
-            qw.orderByDesc(Post::getLikeCount, Post::getId);
-        }
-        qw.last("LIMIT " + limit);
+        // MySQL FULLTEXT 兜底
+        try {
+            LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
+            qw.eq(Post::getStatus, 1);
+            qw.apply("MATCH(title, content) AGAINST({0} IN NATURAL LANGUAGE MODE)", keyword);
+            if (cursor != null) {
+                qw.lt(Post::getId, cursor);
+            }
+            if ("time".equals(sort)) {
+                qw.orderByDesc(Post::getCreatedAt);
+            } else {
+                qw.orderByDesc(Post::getLikeCount, Post::getId);
+            }
+            qw.last("LIMIT " + limit);
 
-        Long currentUserId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
-        return postMapper.selectList(qw).stream().map(p -> {
-            User author = userMapper.selectById(p.getAuthorId());
-            return SearchResultVO.builder()
-                    .type("POST")
-                    .id(p.getId())
-                    .title(p.getTitle())
-                    .description(p.getContent().length() > 200 ? p.getContent().substring(0, 200) + "..." : p.getContent())
-                    .author(toUserVO(author))
-                    .createdAt(p.getCreatedAt())
-                    .likeCount(p.getLikeCount())
-                    .commentCount(p.getCommentCount())
-                    .viewCount(p.getViewCount())
-                    .build();
-        }).toList();
+            return postMapper.selectList(qw).stream().map(p -> {
+                User author = userMapper.selectById(p.getAuthorId());
+                String content = p.getContent() != null ? p.getContent() : "";
+                return SearchResultVO.builder()
+                        .type("POST")
+                        .id(p.getId())
+                        .title(p.getTitle())
+                        .description(content.length() > 200 ? content.substring(0, 200) + "..." : content)
+                        .author(toUserVO(author))
+                        .createdAt(p.getCreatedAt())
+                        .likeCount(p.getLikeCount())
+                        .commentCount(p.getCommentCount())
+                        .viewCount(p.getViewCount())
+                        .build();
+            }).toList();
+        } catch (Exception e) {
+            log.warn("MySQL FULLTEXT search failed for keyword={}: {}", keyword, e.getMessage());
+            // 最终降级：LIKE 模糊搜索
+            return searchPostsByLike(keyword, sort, cursor, limit);
+        }
+    }
+
+    private List<SearchResultVO> searchPostsByLike(String keyword, String sort, Long cursor, int limit) {
+        try {
+            LambdaQueryWrapper<Post> qw = new LambdaQueryWrapper<>();
+            qw.eq(Post::getStatus, 1);
+            qw.and(w -> w.like(Post::getTitle, keyword).or().like(Post::getContent, keyword));
+            if (cursor != null) qw.lt(Post::getId, cursor);
+            if ("time".equals(sort)) {
+                qw.orderByDesc(Post::getCreatedAt);
+            } else {
+                qw.orderByDesc(Post::getLikeCount, Post::getId);
+            }
+            qw.last("LIMIT " + limit);
+
+            return postMapper.selectList(qw).stream().map(p -> {
+                User author = userMapper.selectById(p.getAuthorId());
+                String content = p.getContent() != null ? p.getContent() : "";
+                return SearchResultVO.builder()
+                        .type("POST")
+                        .id(p.getId())
+                        .title(p.getTitle())
+                        .description(content.length() > 200 ? content.substring(0, 200) + "..." : content)
+                        .author(toUserVO(author))
+                        .createdAt(p.getCreatedAt())
+                        .likeCount(p.getLikeCount())
+                        .commentCount(p.getCommentCount())
+                        .viewCount(p.getViewCount())
+                        .build();
+            }).toList();
+        } catch (Exception e) {
+            log.error("LIKE search also failed: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private List<SearchResultVO> searchPostsViaMeiliSearch(String keyword, int limit) {

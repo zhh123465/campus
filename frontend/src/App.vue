@@ -31,7 +31,10 @@ const themeOverrides: GlobalThemeOverrides = {
 </script>
 
 <template>
-  <NConfigProvider :theme="darkTheme" :theme-overrides="themeOverrides">
+  <NConfigProvider
+    :theme="darkTheme"
+    :theme-overrides="themeOverrides"
+  >
     <NMessageProvider>
       <NNotificationProvider>
         <AppNotify />
