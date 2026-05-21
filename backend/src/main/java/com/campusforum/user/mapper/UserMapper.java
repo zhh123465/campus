@@ -12,14 +12,14 @@ import java.util.List;
 @Mapper
 public interface UserMapper extends BaseMapper<User> {
 
-    @Update("UPDATE user SET points = points + #{amount} WHERE id = #{userId}")
+    @Update("UPDATE users SET points = points + #{amount} WHERE id = #{userId}")
     int incrementPoints(@Param("userId") Long userId, @Param("amount") long amount);
 
-    @Update("UPDATE user SET points = points - #{amount} WHERE id = #{userId} AND points >= #{amount}")
+    @Update("UPDATE users SET points = points - #{amount} WHERE id = #{userId} AND points >= #{amount}")
     int decrementPoints(@Param("userId") Long userId, @Param("amount") long amount);
 
     @Select("<script>" +
-            "SELECT id FROM user WHERE tag_subscriptions IS NOT NULL " +
+            "SELECT id FROM users WHERE tag_subscriptions IS NOT NULL " +
             "AND tag_subscriptions != '' AND tag_subscriptions != '[]' " +
             "AND (" +
             "<foreach collection='tags' item='tag' separator=' OR '>" +

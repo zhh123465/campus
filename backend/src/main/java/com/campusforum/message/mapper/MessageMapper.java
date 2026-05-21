@@ -11,7 +11,7 @@ import java.util.List;
 @Mapper
 public interface MessageMapper extends BaseMapper<Message> {
 
-    @Select("SELECT MAX(id) FROM message " +
+    @Select("SELECT MAX(id) FROM messages " +
             "WHERE (sender_id = #{userId} OR receiver_id = #{userId}) " +
             "GROUP BY CASE WHEN sender_id = #{userId} THEN receiver_id ELSE sender_id END " +
             "ORDER BY MAX(id) DESC " +
