@@ -19,6 +19,14 @@ spring:
   websocket:
     endpoint:
       path: /ws/notify
+  mail:
+    host: ${SMTP_HOST:smtp.example.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 
 mybatis-plus:
   global-config:
@@ -120,16 +128,6 @@ rate-limit:
     - /api/v1/auth/login
 
 # ---------- 邮件配置 ----------
-spring:
-  mail:
-    host: ${SMTP_HOST:smtp.example.com}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-
 email:
   from: ${EMAIL_FROM:noreply@campusforum.com}
   reset-link-base: ${RESET_LINK_BASE:http://localhost:3000/reset-password}

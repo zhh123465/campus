@@ -90,12 +90,6 @@
             <version>${langchain4j.version}</version>
         </dependency>
 
-        <!-- Spring Boot Mail -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-mail</artifactId>
-        </dependency>
-
         <!-- BCrypt -->
         <dependency>
             <groupId>org.mindrot</groupId>
