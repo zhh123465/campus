@@ -4,14 +4,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NEmpty, NIcon, NInput, NModal, NSelect, NSpin, NTag, useMessage } from 'naive-ui';
 import { acceptAnswer, getQaInfo } from '@/api/qa';
 import { aiChat, aiModerate, aiRecommendTags, aiSummarize } from '@/api/ai';
-import { deleteComment, createComment, getComments, toggleCommentReaction } from '@/api/comments';
+import { deleteComment, createComment, getComments, toggleCommentReaction, updateComment } from '@/api/comments';
 import { deletePost, getPostById, toggleReaction } from '@/api/posts';
 import { createReport } from '@/api/report';
 import { useAuthStore } from '@/stores/auth';
 import MentionText from '@/components/MentionText.vue';
 import type { CommentVO, PostVO } from '@/types/post';
 import type { QaQuestionVO } from '@/types/qa';
-import { ArrowBackOutline, ChatbubblesOutline, HeartOutline, LinkOutline, MegaphoneOutline, PricetagOutline, ShieldCheckmarkOutline, TrashOutline, PersonOutline, SendOutline, SparklesOutline } from '@vicons/ionicons5';
+import { ArrowBackOutline, ChatbubblesOutline, CreateOutline, HeartOutline, LinkOutline, MegaphoneOutline, PricetagOutline, ShieldCheckmarkOutline, TrashOutline, PersonOutline, SendOutline, SparklesOutline } from '@vicons/ionicons5';
 
 const route = useRoute();
 const router = useRouter();
@@ -32,6 +32,8 @@ const reportTargetType = ref<'POST' | 'COMMENT'>('POST');
 const reportReason = ref('SPAM');
 const reportDesc = ref('');
 const reportSubmitting = ref(false);
+const editingCommentId = ref<number | null>(null);
+const editingCommentText = ref('');
 const aiModalShow = ref(false);
 const aiLoading = ref(false);
 const aiInput = ref('');
@@ -231,6 +233,31 @@ async function handleCommentLike(comment: CommentVO) {
   }
 }
 
+function startEditComment(comment: CommentVO) {
+  editingCommentId.value = comment.id;
+  editingCommentText.value = comment.content;
+}
+
+function cancelEditComment() {
+  editingCommentId.value = null;
+  editingCommentText.value = '';
+}
+
+async function submitEditComment(commentId: number) {
+  if (!editingCommentText.value.trim()) return;
+  try {
+    await updateComment(commentId, editingCommentText.value);
+    message.success('评论已更新');
+    editingCommentId.value = null;
+    editingCommentText.value = '';
+    if (post.value) {
+      comments.value = await getComments(post.value.id, undefined, 20, post.value?.type === 'QA');
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '编辑失败');
+  }
+}
+
 async function handleDeleteComment(commentId: number) {
   try {
     await deleteComment(commentId);
@@ -356,6 +383,14 @@ onMounted(loadPost);
                 </button>
                 <button
                   v-if="isPostAuthor"
+                  class="icon-btn"
+                  @click="router.push(`/posts/${post.id}/edit`)"
+                  title="编辑"
+                >
+                  <n-icon size="16"><CreateOutline /></n-icon>
+                </button>
+                <button
+                  v-if="isPostAuthor"
                   class="icon-btn danger"
                   @click="handleDeletePost"
                 >
@@ -463,6 +498,11 @@ onMounted(loadPost);
                       <button class="text-link danger" @click="openReport('COMMENT', comment.id)">举报</button>
                       <button
                         v-if="currentUserId === comment.authorId"
+                        class="text-link"
+                        @click="startEditComment(comment)"
+                      >编辑</button>
+                      <button
+                        v-if="currentUserId === comment.authorId"
                         class="text-link danger"
                         @click="handleDeleteComment(comment.id)"
                       >删除</button>
@@ -475,7 +515,18 @@ onMounted(loadPost);
                     </div>
                   </div>
                   <div class="comment-content">
-                    <MentionText :text="comment.content" />
+                    <template v-if="editingCommentId === comment.id">
+                      <n-input
+                        v-model:value="editingCommentText"
+                        type="textarea"
+                        :autosize="{ minRows: 2, maxRows: 6 }"
+                      />
+                      <div class="editor-actions" style="margin-top: 8px;">
+                        <button class="cf-secondary-btn" @click="cancelEditComment">取消</button>
+                        <button class="cf-primary-btn" @click="submitEditComment(comment.id)">保存</button>
+                      </div>
+                    </template>
+                    <MentionText v-else :text="comment.content" />
                   </div>
                 </div>
               </article>

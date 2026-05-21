@@ -49,6 +49,12 @@ public class CommentService {
 
     @Transactional
     public CommentVO create(Long userId, CreateCommentRequest req) {
+        // 敏感词过滤：创建前检查
+        int riskLevel = sensitiveWordService.getRiskLevel(req.getContent());
+        if (riskLevel >= 2) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "评论包含敏感内容，请修改后重试");
+        }
+
         Comment comment = new Comment();
         comment.setPostId(req.getPostId());
         comment.setParentId(req.getParentId());

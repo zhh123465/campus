@@ -112,6 +112,17 @@ public class PostService {
 
         postMapper.insert(post);
 
+        // 敏感词过滤：创建后检查风险等级
+        String fullContent = (post.getTitle() != null ? post.getTitle() + " " : "") + post.getContent();
+        int riskLevel = sensitiveWordService.getRiskLevel(fullContent);
+        if (riskLevel > 0) {
+            post.setAiRiskLevel(riskLevel);
+            if (riskLevel >= 2) {
+                post.setStatus(2); // 高风险自动隐藏
+            }
+            postMapper.updateById(post);
+        }
+
         // QA 类型帖子：创建问答扩展记录
         if ("QA".equals(req.getType())) {
             QaQuestion qa = new QaQuestion();
