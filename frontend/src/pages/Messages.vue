@@ -10,6 +10,7 @@ import {
 } from '@vicons/ionicons5'
 import { listConversations, getConversation, sendMessage, markRead } from '@/api/messages'
 import { useAuthStore } from '@/stores/auth'
+import { useWebSocket } from '@/composables/useWebSocket'
 import type { MessageVO } from '@/types/message'
 
 const route = useRoute()
@@ -90,13 +91,26 @@ function peerName(msg: MessageVO): string {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
+// 监听 WebSocket 消息事件，实时刷新对话
+useWebSocket((event) => {
+  if (event.type === 'MESSAGE') {
+    // 收到新消息，刷新对话列表
+    loadConversations()
+    // 如果当前正在和发送者聊天，刷新聊天记录
+    if (activePeerId.value && event.senderId === activePeerId.value) {
+      loadChat(activePeerId.value)
+    }
+  }
+})
+
 onMounted(async () => {
   await loadConversations()
   const peerParam = route.query.peer
   if (peerParam) {
     loadChat(Number(peerParam))
   }
-  pollTimer = setInterval(loadConversations, 5000)
+  // 保留低频轮询作为 WebSocket 断连时的兜底（30 秒）
+  pollTimer = setInterval(loadConversations, 30000)
 })
 
 onUnmounted(() => {
