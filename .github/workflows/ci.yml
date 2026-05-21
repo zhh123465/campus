@@ -41,6 +41,23 @@ jobs:
           cache: maven
       - name: Initialize MySQL schema
         run: docker exec -i ${{ job.services.mysql.id }} mysql -uroot -proot < db/schema.sql
+      - name: Start MinIO
+        run: |
+          docker run -d --name campus-minio-ci \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data
+
+          for i in {1..30}; do
+            if curl -fsS http://localhost:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs campus-minio-ci
+          exit 1
       - name: Run tests
         working-directory: backend
         env:

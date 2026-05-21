@@ -62,4 +62,4 @@ search:
 
 upload:
   max-file-size: 10MB
-  allowed-extensions: pdf,jpg,png
+  allowed-extensions: pdf,doc,docx,ppt,pptx,xls,xlsx,zip,rar,7z,jpg,jpeg,png,gif,webp,md,markdown
