@@ -5,6 +5,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
+import com.campusforum.common.TokenHasher;
 import com.campusforum.infra.audit.AuditContext;
 import com.campusforum.infra.audit.AuditLogService;
 import com.campusforum.infra.email.EmailCodeScene;
@@ -12,6 +13,12 @@ import com.campusforum.infra.metrics.SecurityMetrics;
 import com.campusforum.infra.security.LoginLockoutService;
 import com.campusforum.infra.security.SecurityProperties;
 import com.campusforum.infra.security.TrustedProxyResolver;
+import com.campusforum.social.service.GithubDeviceCodeSession;
+import com.campusforum.social.service.GithubOAuthClient;
+import com.campusforum.social.service.GithubTokenPollResult;
+import com.campusforum.social.service.GithubUserInfo;
+import com.campusforum.social.service.QqOAuthClient;
+import com.campusforum.social.service.QqUserInfo;
 import com.campusforum.tenant.TenantContext;
 import com.campusforum.tenant.cache.ActiveTenantCache;
 import com.campusforum.user.config.StudentNoMappingProperties;
@@ -75,6 +82,8 @@ public class UserService {
     /** 安全监控埋点（敏感凭证变更后强制踢下线计数）。 */
     private final SecurityMetrics securityMetrics;
     private final WechatMiniProgramClient wechatMiniProgramClient;
+    private final QqOAuthClient qqOAuthClient;
+    private final GithubOAuthClient githubOAuthClient;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -118,6 +127,77 @@ public class UserService {
         }
 
         return completeLogin(user);
+    }
+
+    @Transactional
+    public UserVO loginByQq(String openid, String accessToken) {
+        long tid = requireTenantId();
+        QqUserInfo info = qqOAuthClient.getUserInfo(openid, accessToken);
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tid)
+                .eq(User::getQqOpenid, info.openid()));
+
+        if (user == null) {
+            user = new User();
+            user.setTenantId(tid);
+            user.setEmail(socialLocalEmail("qq", info.openid()));
+            user.setPasswordHash(BCrypt.hashpw(randomPassword(), BCrypt.gensalt(10)));
+            user.setNickname(StringUtils.hasText(info.nickname()) ? info.nickname() : "QQ用户");
+            user.setAvatarUrl(info.avatarUrl());
+            user.setQqOpenid(info.openid());
+            user.setRole("USER");
+            user.setStatus(1);
+            try {
+                userMapper.insert(user);
+            } catch (DuplicateKeyException e) {
+                log.warn("QQ login unique-key conflict for openid={}: {}", info.openid(), e.getMessage());
+                throw new BusinessException(ErrorCode.INVALID_CREDENTIALS.getCode(), "QQ 登录失败，请稍后重试");
+            }
+        } else if (user.getStatus() == 0) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS.getCode(), "账号不可用");
+        }
+
+        return completeLogin(user);
+    }
+
+    public GithubDeviceCodeSession startGithubDeviceLogin() {
+        return githubOAuthClient.startDeviceLogin();
+    }
+
+    @Transactional
+    public GithubLoginResult loginByGithubDeviceCode(String deviceCode) {
+        GithubTokenPollResult poll = githubOAuthClient.pollToken(deviceCode);
+        if (poll.pending()) {
+            return GithubLoginResult.pending(poll.retryAfterSeconds());
+        }
+
+        long tid = requireTenantId();
+        GithubUserInfo info = githubOAuthClient.getUserInfo(poll.accessToken());
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tid)
+                .eq(User::getGithubId, info.id()));
+
+        if (user == null) {
+            user = new User();
+            user.setTenantId(tid);
+            user.setEmail(socialLocalEmail("github", info.id()));
+            user.setPasswordHash(BCrypt.hashpw(randomPassword(), BCrypt.gensalt(10)));
+            user.setNickname(githubDisplayName(info));
+            user.setAvatarUrl(info.avatarUrl());
+            user.setGithubId(info.id());
+            user.setRole("USER");
+            user.setStatus(1);
+            try {
+                userMapper.insert(user);
+            } catch (DuplicateKeyException e) {
+                log.warn("GitHub login unique-key conflict for githubId={}: {}", info.id(), e.getMessage());
+                throw new BusinessException(ErrorCode.INVALID_CREDENTIALS.getCode(), "GitHub 登录失败，请稍后重试");
+            }
+        } else if (user.getStatus() == 0) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS.getCode(), "账号不可用");
+        }
+
+        return GithubLoginResult.authenticated(completeLogin(user));
     }
 
     @Transactional
@@ -749,6 +829,27 @@ public class UserService {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String socialLocalEmail(String provider, String subject) {
+        String digest = TokenHasher.sha256Hex(provider + ":" + subject);
+        return provider + "_" + digest.substring(0, 32) + "@" + provider + ".local";
+    }
+
+    private String githubDisplayName(GithubUserInfo info) {
+        if (StringUtils.hasText(info.name())) return info.name();
+        if (StringUtils.hasText(info.login())) return info.login();
+        return "GitHub用户";
+    }
+
+    public record GithubLoginResult(boolean pending, int retryAfterSeconds, UserVO user) {
+        public static GithubLoginResult pending(int retryAfterSeconds) {
+            return new GithubLoginResult(true, retryAfterSeconds, null);
+        }
+
+        public static GithubLoginResult authenticated(UserVO user) {
+            return new GithubLoginResult(false, 0, user);
+        }
     }
 
     private UserVO toVO(User user) {

@@ -9,7 +9,9 @@ import com.campusforum.infra.security.WsTicketService;
 import com.campusforum.user.dto.ChangePasswordRequest;
 import com.campusforum.user.dto.EmailCodeRequest;
 import com.campusforum.user.dto.EmailOnlyRequest;
+import com.campusforum.user.dto.GithubDeviceLoginRequest;
 import com.campusforum.user.dto.LoginRequest;
+import com.campusforum.user.dto.QqLoginRequest;
 import com.campusforum.user.dto.RegisterRequest;
 import com.campusforum.user.dto.ResetPasswordRequest;
 import com.campusforum.user.dto.UserVO;
@@ -61,13 +63,39 @@ public class AuthController {
     @PostMapping("/wechat-login")
     public R<Map<String, Object>> wechatLogin(@Valid @RequestBody WechatLoginRequest req) {
         UserVO user = userService.loginByWechatMiniProgramCode(req.getCode());
-        String token = StpUtil.getTokenValue();
+        return R.ok(loginPayload(user));
+    }
+
+    @PostMapping("/qq-login")
+    public R<Map<String, Object>> qqLogin(@Valid @RequestBody QqLoginRequest req) {
+        UserVO user = userService.loginByQq(req.getOpenid(), req.getAccessToken());
+        return R.ok(loginPayload(user));
+    }
+
+    @PostMapping("/github-device-code")
+    public R<Map<String, Object>> githubDeviceCode() {
+        var session = userService.startGithubDeviceLogin();
         return R.ok(Map.of(
-                "token", token,
-                "tenantId", user.getTenantId(),
-                "tenantCode", user.getTenantCode(),
-                "user", user
+                "deviceCode", session.deviceCode(),
+                "userCode", session.userCode(),
+                "verificationUri", session.verificationUri(),
+                "expiresIn", session.expiresIn(),
+                "interval", session.interval()
         ));
+    }
+
+    @PostMapping("/github-device-login")
+    public R<Map<String, Object>> githubDeviceLogin(@Valid @RequestBody GithubDeviceLoginRequest req) {
+        UserService.GithubLoginResult result = userService.loginByGithubDeviceCode(req.getDeviceCode());
+        if (result.pending()) {
+            return R.ok(Map.of(
+                    "pending", true,
+                    "retryAfterSeconds", result.retryAfterSeconds()
+            ));
+        }
+        Map<String, Object> payload = new java.util.LinkedHashMap<>(loginPayload(result.user()));
+        payload.put("pending", false);
+        return R.ok(payload);
     }
 
     @PostMapping("/logout")
@@ -130,5 +158,14 @@ public class AuthController {
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.BAD_REQUEST.getCode(), "验证码用途不正确");
         }
+    }
+
+    private Map<String, Object> loginPayload(UserVO user) {
+        return Map.of(
+                "token", StpUtil.getTokenValue(),
+                "tenantId", user.getTenantId(),
+                "tenantCode", user.getTenantCode(),
+                "user", user
+        );
     }
 }

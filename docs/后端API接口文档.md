@@ -49,6 +49,7 @@
 - 后续请求头：`Authorization: <token>`，不带 `Bearer`
 - 当前 token 是 Sa-Token tik 随机串，服务端通过 Redis 维护登录态，不是 JWT
 - `/api/v1/auth/login`、注册、验证码、重置密码、租户信息、部分下载/预览直链等可匿名访问
+- GET 接口不再默认匿名放行：只有帖子、评论、公开用户、公开空间、资源公开读、搜索、成就、打卡挑战、关注公开列表、QA、AI 公开市场等明确白名单可游客访问；`/users/me`、`/auth/me`、私信、通知、后台、资源签名申请、空间管理视图、AI 对话和知识库等 GET 均需登录
 - 所有写操作通常要求登录
 - 管理后台接口额外依赖 `@SaCheckPermission`
 
@@ -235,6 +236,77 @@ Response `data`:
 
 ```json
 {
+  "token": "satoken-value",
+  "tenantId": 1,
+  "tenantCode": "default",
+  "user": {}
+}
+```
+
+### POST `/api/v1/auth/qq-login`
+
+QQ 登录。前端需先通过 QQ OAuth/OpenAPI 拿到 `openid` 和 `accessToken`，后端会向 QQ `get_user_info` 校验并同步昵称、头像。
+
+Body:
+
+```json
+{
+  "openid": "qq-openid",
+  "accessToken": "qq-access-token"
+}
+```
+
+Response `data`:
+
+```json
+{
+  "token": "satoken-value",
+  "tenantId": 1,
+  "tenantCode": "default",
+  "user": {}
+}
+```
+
+### POST `/api/v1/auth/github-device-code`
+
+发起 GitHub Device Flow 登录。无需请求体。
+
+Response `data`:
+
+```json
+{
+  "deviceCode": "device-code",
+  "userCode": "ABCD-1234",
+  "verificationUri": "https://github.com/login/device",
+  "expiresIn": 900,
+  "interval": 5
+}
+```
+
+### POST `/api/v1/auth/github-device-login`
+
+轮询 GitHub Device Flow 登录结果。未授权完成时返回 `pending=true`，前端按 `retryAfterSeconds` 稍后重试；授权完成后返回登录态。
+
+Body:
+
+```json
+{ "deviceCode": "device-code" }
+```
+
+Pending response `data`:
+
+```json
+{
+  "pending": true,
+  "retryAfterSeconds": 5
+}
+```
+
+Success response `data`:
+
+```json
+{
+  "pending": false,
   "token": "satoken-value",
   "tenantId": 1,
   "tenantCode": "default",
@@ -691,6 +763,8 @@ Query: `spaceId?`、`college?`、`major?`、`course?`、`cursor?`、`limit?`
 
 申请短期下载/预览签名。需登录。
 
+签名会绑定申请人、资源 id、动作和过期时间。后续浏览器直链携带 `sig` 时不需要 `Authorization` 头，但后端仍按签名中的申请人身份重新执行资源可见性校验；因此私有资源、空间资源只会对原本有权限的签名申请人有效。
+
 Response `data`:
 
 ```json
@@ -704,7 +778,7 @@ Response `data`:
 
 下载文件。支持两种方式：
 
-- 带 `sig`：校验短期签名，适合 `<a href>` 或浏览器直链
+- 带 `sig`：校验短期签名，并按签名中的申请人身份访问，适合 `<a href>` 或浏览器直链
 - 不带 `sig`：要求登录态和访问权限
 
 响应为文件流，`Content-Disposition: attachment`。
@@ -1290,6 +1364,7 @@ AI 配置 Body:
 - 游标分页没有总数和 nextCursor，取最后一项 id 继续翻页
 - 下载、预览、导出不是统一 JSON，Axios 需要按文件流处理
 - `GET /api/v1/resources/{id}/preview` 对 Office 文档返回 JSON，不是文件流
+- 资源 `download/preview` 直链携带 `sig` 时无需 `Authorization`，但签名过期、动作不匹配或签名用户无权访问都会按资源不存在处理
 - 前端 `resources.ts` 当前 accept 包含压缩包，但后端默认不允许 zip/rar/7z
 - 前端 `messages.ts` 建议把 `receiverId` 从字符串改为 number
 - `GET /api/v1/users/{id}` 后端返回 `PublicUserVO`，不是完整 `UserVO`

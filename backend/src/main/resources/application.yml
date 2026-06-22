@@ -189,6 +189,18 @@ rate-limit:
     "[POST /api/v1/auth/login]":
       max-requests: 10
       window-seconds: 60
+    "[POST /api/v1/auth/wechat-login]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/qq-login]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/github-device-code]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/github-device-login]":
+      max-requests: 30
+      window-seconds: 60
     "[POST /api/v1/auth/register]":
       max-requests: 5
       window-seconds: 300
@@ -245,6 +257,25 @@ email:
   reset-token-expire-minutes: 30
   rate-limit-max-requests: 5
   rate-limit-window-minutes: 15
+
+# ---------- 社会化登录 ----------
+wechat:
+  mini-program:
+    app-id: ${WECHAT_MINI_PROGRAM_APP_ID:}
+    app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
+    connect-timeout-ms: ${SOCIAL_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${SOCIAL_READ_TIMEOUT_MS:8000}
+
+social:
+  connect-timeout-ms: ${SOCIAL_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${SOCIAL_READ_TIMEOUT_MS:8000}
+  qq:
+    app-id: ${QQ_APP_ID:}
+    app-key: ${QQ_APP_KEY:}
+  github:
+    client-id: ${GITHUB_CLIENT_ID:}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
+    scope: ${GITHUB_OAUTH_SCOPE:read:user}
 
 # ---------- 安全相关 ----------
 security:
