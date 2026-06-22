@@ -6,10 +6,14 @@ import com.campusforum.post.dto.CreateCommentRequest;
 import com.campusforum.post.dto.CreatePostRequest;
 import com.campusforum.post.dto.PostPageRequest;
 import com.campusforum.post.dto.PostVO;
+import com.campusforum.post.dto.ReactionRequest;
+import com.campusforum.post.domain.Reaction;
+import com.campusforum.post.mapper.ReactionMapper;
 import com.campusforum.tenant.TenantContext;
 import com.campusforum.user.dto.RegisterRequest;
 import com.campusforum.user.dto.UserVO;
 import com.campusforum.user.service.UserService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,9 @@ class PostServiceTest {
 
     @Autowired
     private CommentService commentService;
+
+    @Autowired
+    private ReactionMapper reactionMapper;
 
     @Autowired
     private UserService userService;
@@ -167,6 +174,24 @@ class PostServiceTest {
     void shouldThrowWhenPostNotFound() {
         assertThatThrownBy(() -> postService.getById(999999L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void toggleReactionShouldRejectMissingPostBeforeWritingReaction() {
+        ReactionRequest req = new ReactionRequest();
+        req.setTargetType("POST");
+        req.setTargetId(999999999L);
+        req.setType("LIKE");
+
+        assertThatThrownBy(() -> postService.toggleReaction(authorId, req))
+                .isInstanceOf(BusinessException.class);
+
+        Long count = reactionMapper.selectCount(new LambdaQueryWrapper<Reaction>()
+                .eq(Reaction::getUserId, authorId)
+                .eq(Reaction::getTargetType, "POST")
+                .eq(Reaction::getTargetId, 999999999L)
+                .eq(Reaction::getType, "LIKE"));
+        assertThat(count).isZero();
     }
 
     @Test
