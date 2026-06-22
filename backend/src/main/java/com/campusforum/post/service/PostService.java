@@ -368,6 +368,14 @@ public class PostService {
 
     @Transactional
     public boolean toggleReaction(Long userId, ReactionRequest req) {
+        Post post = null;
+        if ("POST".equals(req.getTargetType()) && "LIKE".equals(req.getType())) {
+            post = postMapper.selectById(req.getTargetId());
+            if (post == null || post.getDeleted() == 1) {
+                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            }
+        }
+
         LambdaQueryWrapper<Reaction> qw = new LambdaQueryWrapper<>();
         qw.eq(Reaction::getUserId, userId)
           .eq(Reaction::getTargetType, req.getTargetType())
@@ -394,11 +402,6 @@ public class PostService {
             // Bug fix 1.4: 原子计数器更新 + Bug fix 1.18: 空值检查
             if ("POST".equals(req.getTargetType()) && "LIKE".equals(req.getType())) {
                 postMapper.incrementLikeCount(req.getTargetId(), 1);
-
-                Post post = postMapper.selectById(req.getTargetId());
-                if (post == null || post.getDeleted() == 1) {
-                    throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-                }
 
                 if (!post.getAuthorId().equals(userId)) {
                     achievementService.onPostLiked(post.getAuthorId());
