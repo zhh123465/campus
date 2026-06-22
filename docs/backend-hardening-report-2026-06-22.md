@@ -41,6 +41,13 @@
 - `backend/src/test/java/com/campusforum/post/service/PostServiceTest.java`
   - 新增 `toggleReactionShouldRejectMissingPostBeforeWritingReaction`，验证不存在帖子点赞会抛业务异常，且不留下 reaction 记录。
 
+### 5. 接口与实现文档同步
+
+- `docs/后端API接口文档.md`
+  - 补充帖子点赞/收藏接口的路径 `id` 与 Body `targetId` 关系，以及目标帖子不存在或已删除时的 `40400` 行为。
+- `docs/后端功能实现文档.md`
+  - 补充帖子点赞前置校验和无副作用失败语义。
+
 ## 验证结果
 
 - 定向测试：
