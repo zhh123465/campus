@@ -6,6 +6,7 @@ import com.campusforum.common.BusinessException;
 import com.campusforum.common.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,7 +32,7 @@ public class AiWorkspaceService {
 
     private final AiService aiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Path storePath = Path.of("data", "ai-workspace.json");
+    private final Path storePath;
 
     private final Map<String, Map<String, Object>> agents = new ConcurrentHashMap<>();
     private final Map<String, Map<String, Object>> plugins = new ConcurrentHashMap<>();
@@ -53,8 +54,10 @@ public class AiWorkspaceService {
     private final AtomicLong conversationSeq = new AtomicLong(100);
     private final AtomicLong messageSeq = new AtomicLong(100);
 
-    public AiWorkspaceService(AiService aiService) {
+    public AiWorkspaceService(AiService aiService,
+                              @Value("${ai.workspace.store-path:data/ai-workspace.json}") String storePath) {
         this.aiService = aiService;
+        this.storePath = Path.of(storePath);
         if (!load()) {
             seed();
             save();
@@ -66,9 +69,10 @@ public class AiWorkspaceService {
         long userId = userIdOrGuest();
         List<Map<String, Object>> list = agents.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
+                .filter(item -> canReadAgent(item, userId))
                 .filter(item -> matches(item, keyword, "name", "description", "category"))
                 .filter(item -> blank(category) || Objects.equals(item.get("category"), category))
-                .filter(item -> !Boolean.TRUE.equals(mine) || Objects.equals(item.get("ownerId"), userId))
+                .filter(item -> !Boolean.TRUE.equals(mine) || isOwner(item, userId))
                 .filter(item -> !Boolean.TRUE.equals(favorite) || favorites(favoriteAgents, userId).contains(id(item)))
                 .map(item -> agentView(item, userId))
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -79,6 +83,8 @@ public class AiWorkspaceService {
     public Map<String, Object> createAgent(Map<String, Object> body) {
         long userId = requireUser();
         String now = now();
+        List<String> knowledgeBaseIds = requireReadableKnowledgeBases(list(body.get("knowledgeBaseIds")), userId);
+        List<String> pluginIds = requireReadablePlugins(list(body.get("pluginIds")), userId);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("id", "agent_" + agentSeq.incrementAndGet());
         item.put("name", str(body.get("name"), "Untitled Agent"));
@@ -87,8 +93,8 @@ public class AiWorkspaceService {
         item.put("model", str(body.get("model"), "deepseek-v4-flash"));
         item.put("prompt", str(body.get("prompt"), ""));
         item.put("abilities", list(body.get("abilities")));
-        item.put("knowledgeBaseIds", list(body.get("knowledgeBaseIds")));
-        item.put("pluginIds", list(body.get("pluginIds")));
+        item.put("knowledgeBaseIds", knowledgeBaseIds);
+        item.put("pluginIds", pluginIds);
         item.put("tags", list(body.get("tags")));
         item.put("avatar", str(body.get("avatar"), ""));
         item.put("color", str(body.get("color"), "#18c7a7"));
@@ -104,13 +110,22 @@ public class AiWorkspaceService {
     }
 
     public Map<String, Object> getAgent(String agentId) {
-        return agentView(require(agents, agentId), userIdOrGuest());
+        long userId = userIdOrGuest();
+        return agentView(requireReadableAgent(agentId, userId), userId);
     }
 
     public Map<String, Object> updateAgent(String agentId, Map<String, Object> body) {
         long userId = requireUser();
-        Map<String, Object> item = require(agents, agentId);
+        Map<String, Object> item = requireReadableAgent(agentId, userId);
         requireOwner(item, userId);
+        if (body.containsKey("knowledgeBaseIds")) {
+            body = new LinkedHashMap<>(body);
+            body.put("knowledgeBaseIds", requireReadableKnowledgeBases(list(body.get("knowledgeBaseIds")), userId));
+        }
+        if (body.containsKey("pluginIds")) {
+            body = new LinkedHashMap<>(body);
+            body.put("pluginIds", requireReadablePlugins(list(body.get("pluginIds")), userId));
+        }
         patch(item, body, "name", "description", "category", "model", "prompt", "abilities",
                 "knowledgeBaseIds", "pluginIds", "tags", "avatar", "color");
         item.put("updatedAt", now());
@@ -120,7 +135,7 @@ public class AiWorkspaceService {
 
     public Map<String, Object> favoriteAgent(String agentId, boolean favorite) {
         long userId = requireUser();
-        require(agents, agentId);
+        requireReadableAgent(agentId, userId);
         setFlag(favorites(favoriteAgents, userId), agentId, favorite);
         save();
         return Map.of("id", agentId, "isFavorite", favorite);
@@ -128,18 +143,20 @@ public class AiWorkspaceService {
 
     public Map<String, Object> useAgent(String agentId) {
         long userId = requireUser();
-        Map<String, Object> item = require(agents, agentId);
+        Map<String, Object> item = requireReadableAgent(agentId, userId);
         item.put("userCount", num(item.get("userCount")) + 1);
         item.put("updatedAt", now());
         save();
+        List<String> knowledgeBaseIds = readableKnowledgeBases(list(item.get("knowledgeBaseIds")), userId);
+        List<String> pluginIds = readablePlugins(list(item.get("pluginIds")), userId);
         return Map.of(
                 "agent", agentView(item, userId),
                 "context", Map.of(
                         "model", str(item.get("model"), "deepseek-v4-flash"),
                         "prompt", str(item.get("prompt"), ""),
                         "abilities", list(item.get("abilities")),
-                        "knowledgeBaseIds", list(item.get("knowledgeBaseIds")),
-                        "pluginIds", list(item.get("pluginIds"))
+                        "knowledgeBaseIds", knowledgeBaseIds,
+                        "pluginIds", pluginIds
                 )
         );
     }
@@ -149,6 +166,7 @@ public class AiWorkspaceService {
         long userId = userIdOrGuest();
         List<Map<String, Object>> list = plugins.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
+                .filter(item -> canReadPlugin(item, userId))
                 .filter(item -> matches(item, keyword, "name", "description", "category"))
                 .filter(item -> blank(category) || Objects.equals(item.get("category"), category))
                 .filter(item -> pluginTab(item, tab))
@@ -159,18 +177,22 @@ public class AiWorkspaceService {
     }
 
     public List<Map<String, Object>> pluginRankings() {
+        long userId = userIdOrGuest();
         return plugins.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
-                .map(item -> pluginView(item, userIdOrGuest()))
+                .filter(item -> canReadPlugin(item, userId))
+                .map(item -> pluginView(item, userId))
                 .sorted(Comparator.comparingLong(item -> -num(item.get("usageCount"))))
                 .limit(10)
                 .toList();
     }
 
     public List<Map<String, Object>> latestPlugins() {
+        long userId = userIdOrGuest();
         return plugins.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
-                .map(item -> pluginView(item, userIdOrGuest()))
+                .filter(item -> canReadPlugin(item, userId))
+                .map(item -> pluginView(item, userId))
                 .sorted(Comparator.comparing(item -> str(item.get("createdAt"), ""), Comparator.reverseOrder()))
                 .limit(10)
                 .toList();
@@ -178,15 +200,20 @@ public class AiWorkspaceService {
 
     public Map<String, Object> installPlugin(String pluginId, boolean installed) {
         long userId = requireUser();
-        require(plugins, pluginId);
-        setFlag(installs(userId), pluginId, installed);
+        Map<String, Object> plugin = requireReadablePlugin(pluginId, userId);
+        Set<String> installs = installs(userId);
+        boolean changed = installed ? installs.add(pluginId) : installs.remove(pluginId);
+        if (changed) {
+            long count = num(plugin.get("installCount")) + (installed ? 1 : -1);
+            plugin.put("installCount", Math.max(0L, count));
+        }
         save();
         return Map.of("id", pluginId, "isInstalled", installed);
     }
 
     public Map<String, Object> invokePlugin(String pluginId, Map<String, Object> body) {
         long userId = requireUser();
-        Map<String, Object> plugin = require(plugins, pluginId);
+        Map<String, Object> plugin = requireReadablePlugin(pluginId, userId);
         if (!installs(userId).contains(pluginId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -244,6 +271,7 @@ public class AiWorkspaceService {
         long userId = userIdOrGuest();
         List<Map<String, Object>> list = knowledgeBases.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
+                .filter(item -> canReadKnowledgeBase(item, userId))
                 .filter(item -> matches(item, keyword, "name", "description", "category", "type"))
                 .filter(item -> blank(category) || Objects.equals(item.get("category"), category))
                 .filter(item -> blank(type) || Objects.equals(item.get("type"), type))
@@ -255,8 +283,10 @@ public class AiWorkspaceService {
     }
 
     public Map<String, Object> knowledgeStats() {
+        long userId = requireUser();
         List<Map<String, Object>> active = knowledgeBases.values().stream()
                 .filter(item -> !bool(item.get("deleted")))
+                .filter(item -> canReadKnowledgeBase(item, userId))
                 .toList();
         long docs = active.stream().mapToLong(item -> num(item.get("documentCount"))).sum();
         long vectors = active.stream().mapToLong(item -> num(item.get("vectorCount"))).sum();
@@ -317,15 +347,16 @@ public class AiWorkspaceService {
 
     public Map<String, Object> favoriteKnowledgeBase(String knowledgeBaseId, boolean favorite) {
         long userId = requireUser();
-        require(knowledgeBases, knowledgeBaseId);
+        requireReadableKnowledgeBase(knowledgeBaseId, userId);
         setFlag(favorites(favoriteKnowledgeBases, userId), knowledgeBaseId, favorite);
         save();
         return Map.of("id", knowledgeBaseId, "isFavorite", favorite);
     }
 
     public Map<String, Object> shareKnowledgeBase(String knowledgeBaseId, Map<String, Object> body) {
-        requireUser();
-        require(knowledgeBases, knowledgeBaseId);
+        long userId = requireUser();
+        Map<String, Object> kb = require(knowledgeBases, knowledgeBaseId);
+        requireOwner(kb, userId);
         return Map.of(
                 "shareId", "share_" + shortId(),
                 "knowledgeBaseId", knowledgeBaseId,
@@ -379,7 +410,7 @@ public class AiWorkspaceService {
     }
 
     public List<Map<String, Object>> listDocuments(String knowledgeBaseId) {
-        require(knowledgeBases, knowledgeBaseId);
+        requireReadableKnowledgeBase(knowledgeBaseId, requireUser());
         return new ArrayList<>(documents.getOrDefault(knowledgeBaseId, List.of()));
     }
 
@@ -398,7 +429,10 @@ public class AiWorkspaceService {
     }
 
     public Map<String, Object> ingestTask(String taskId) {
-        return require(ingestTasks, taskId);
+        Map<String, Object> task = require(ingestTasks, taskId);
+        String knowledgeBaseId = str(task.get("knowledgeBaseId"), "");
+        requireReadableKnowledgeBase(knowledgeBaseId, requireUser());
+        return task;
     }
 
     public Map<String, Object> createQaPair(String knowledgeBaseId, Map<String, Object> body) {
@@ -418,7 +452,7 @@ public class AiWorkspaceService {
     }
 
     public Map<String, Object> knowledgeUsage(String knowledgeBaseId) {
-        require(knowledgeBases, knowledgeBaseId);
+        requireReadableKnowledgeBase(knowledgeBaseId, requireUser());
         return Map.of(
                 "knowledgeBaseId", knowledgeBaseId,
                 "callCount", 0,
@@ -434,13 +468,19 @@ public class AiWorkspaceService {
     public Map<String, Object> createConversation(Map<String, Object> body) {
         long userId = requireUser();
         String id = "chat_" + conversationSeq.incrementAndGet();
+        String agentId = str(body.get("agentId"), "");
+        if (!blank(agentId)) {
+            requireReadableAgent(agentId, userId);
+        }
+        List<String> pluginIds = requireReadablePlugins(list(body.get("pluginIds")), userId);
+        List<String> knowledgeBaseIds = requireReadableKnowledgeBases(list(body.get("knowledgeBaseIds")), userId);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("id", id);
         item.put("title", str(body.get("title"), "New conversation"));
         item.put("model", str(body.get("model"), "deepseek-v4-flash"));
-        item.put("agentId", str(body.get("agentId"), ""));
-        item.put("pluginIds", list(body.get("pluginIds")));
-        item.put("knowledgeBaseIds", list(body.get("knowledgeBaseIds")));
+        item.put("agentId", agentId);
+        item.put("pluginIds", pluginIds);
+        item.put("knowledgeBaseIds", knowledgeBaseIds);
         item.put("ownerId", userId);
         item.put("createdAt", now());
         item.put("updatedAt", now());
@@ -453,7 +493,7 @@ public class AiWorkspaceService {
     public Map<String, Object> listConversations(int page, int pageSize) {
         long userId = requireUser();
         List<Map<String, Object>> list = conversations.values().stream()
-                .filter(item -> Objects.equals(item.get("ownerId"), userId))
+                .filter(item -> isOwner(item, userId))
                 .map(this::conversationView)
                 .sorted(Comparator.comparing(item -> str(item.get("updatedAt"), ""), Comparator.reverseOrder()))
                 .collect(Collectors.toList());
@@ -472,12 +512,17 @@ public class AiWorkspaceService {
         String content = str(body.get("content"), "");
         String model = str(body.get("model"), str(conversation.get("model"), "deepseek-v4-flash"));
         String agentId = str(body.get("agentId"), str(conversation.get("agentId"), ""));
+        if (!blank(agentId)) {
+            requireReadableAgent(agentId, userId);
+        }
         List<String> pluginIds = list(body.get("pluginIds")).isEmpty()
                 ? list(conversation.get("pluginIds"))
                 : list(body.get("pluginIds"));
+        pluginIds = requireReadablePlugins(pluginIds, userId);
         List<String> kbIds = list(body.get("knowledgeBaseIds")).isEmpty()
                 ? list(conversation.get("knowledgeBaseIds"))
                 : list(body.get("knowledgeBaseIds"));
+        kbIds = requireReadableKnowledgeBases(kbIds, userId);
 
         Map<String, Object> userMessage = message("user", content, model);
         userMessage.put("attachments", list(body.get("attachments")));
@@ -504,10 +549,12 @@ public class AiWorkspaceService {
     }
 
     public Map<String, Object> feedback(String messageId, Map<String, Object> body) {
-        requireUser();
-        for (List<Map<String, Object>> messages : conversationMessages.values()) {
+        long userId = requireUser();
+        for (Map.Entry<String, List<Map<String, Object>>> entry : conversationMessages.entrySet()) {
+            List<Map<String, Object>> messages = entry.getValue();
             for (Map<String, Object> message : messages) {
                 if (Objects.equals(message.get("id"), messageId)) {
+                    requireConversationOwner(entry.getKey(), userId);
                     message.put("feedback", Map.of(
                             "helpful", Boolean.TRUE.equals(body.get("helpful")),
                             "reason", str(body.get("reason"), ""),
@@ -567,7 +614,10 @@ public class AiWorkspaceService {
 
     private synchronized void save() {
         try {
-            Files.createDirectories(storePath.getParent());
+            Path parent = storePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             Map<String, Object> state = new LinkedHashMap<>();
             state.put("agents", agents);
             state.put("plugins", plugins);
@@ -715,7 +765,9 @@ public class AiWorkspaceService {
         Map<String, Object> view = new LinkedHashMap<>(item);
         view.remove("ownerId");
         view.remove("deleted");
-        view.put("isMine", Objects.equals(item.get("ownerId"), userId));
+        view.put("pluginIds", readablePlugins(list(item.get("pluginIds")), userId));
+        view.put("knowledgeBaseIds", readableKnowledgeBases(list(item.get("knowledgeBaseIds")), userId));
+        view.put("isMine", isOwner(item, userId));
         view.put("isFavorite", favorites(favoriteAgents, userId).contains(id(item)));
         return view;
     }
@@ -732,6 +784,7 @@ public class AiWorkspaceService {
         Map<String, Object> view = new LinkedHashMap<>(item);
         view.remove("ownerId");
         view.remove("deleted");
+        view.put("isMine", isOwner(item, userId));
         view.put("isFavorite", favorites(favoriteKnowledgeBases, userId).contains(id(item)));
         return view;
     }
@@ -851,7 +904,7 @@ public class AiWorkspaceService {
 
     private boolean kbTab(Map<String, Object> item, String tab, long userId) {
         if ("mine".equals(tab)) {
-            return Objects.equals(item.get("ownerId"), userId);
+            return isOwner(item, userId);
         }
         if ("shared".equals(tab)) {
             return "shared".equals(item.get("visibility"));
@@ -860,6 +913,110 @@ public class AiWorkspaceService {
             return favorites(favoriteKnowledgeBases, userId).contains(id(item));
         }
         return true;
+    }
+
+    private Map<String, Object> requireReadableAgent(String agentId, long userId) {
+        Map<String, Object> item = require(agents, agentId);
+        if (!canReadAgent(item, userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return item;
+    }
+
+    private boolean canReadAgent(Map<String, Object> item, long userId) {
+        if (bool(item.get("deleted"))) {
+            return false;
+        }
+        if (isOwner(item, userId)) {
+            return true;
+        }
+        Object owner = item.get("ownerId");
+        return owner == null || (owner instanceof Number n && n.longValue() == 0L);
+    }
+
+    private Map<String, Object> requireReadablePlugin(String pluginId, long userId) {
+        Map<String, Object> item = require(plugins, pluginId);
+        if (!canReadPlugin(item, userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return item;
+    }
+
+    private boolean canReadPlugin(Map<String, Object> item, long userId) {
+        if (bool(item.get("deleted"))) {
+            return false;
+        }
+        if (isOwner(item, userId)) {
+            return true;
+        }
+        Object owner = item.get("ownerId");
+        if (owner == null || (owner instanceof Number n && n.longValue() == 0L)) {
+            return true;
+        }
+        String reviewStatus = str(item.get("reviewStatus"), "pending").toLowerCase(Locale.ROOT);
+        return "approved".equals(reviewStatus);
+    }
+
+    private List<String> requireReadableKnowledgeBases(List<String> knowledgeBaseIds, long userId) {
+        for (String knowledgeBaseId : knowledgeBaseIds) {
+            requireReadableKnowledgeBase(knowledgeBaseId, userId);
+        }
+        return knowledgeBaseIds;
+    }
+
+    private List<String> requireReadablePlugins(List<String> pluginIds, long userId) {
+        for (String pluginId : pluginIds) {
+            requireReadablePlugin(pluginId, userId);
+        }
+        return pluginIds;
+    }
+
+    private List<String> readablePlugins(List<String> pluginIds, long userId) {
+        return pluginIds.stream()
+                .filter(id -> {
+                    Map<String, Object> item = plugins.get(id);
+                    return item != null && canReadPlugin(item, userId);
+                })
+                .toList();
+    }
+
+    private List<String> readableKnowledgeBases(List<String> knowledgeBaseIds, long userId) {
+        return knowledgeBaseIds.stream()
+                .filter(id -> {
+                    Map<String, Object> item = knowledgeBases.get(id);
+                    return item != null && canReadKnowledgeBase(item, userId);
+                })
+                .toList();
+    }
+
+    private Map<String, Object> requireReadableKnowledgeBase(String knowledgeBaseId, long userId) {
+        Map<String, Object> item = require(knowledgeBases, knowledgeBaseId);
+        if (!canReadKnowledgeBase(item, userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return item;
+    }
+
+    private boolean canReadKnowledgeBase(Map<String, Object> item, long userId) {
+        if (bool(item.get("deleted"))) {
+            return false;
+        }
+        if (isOwner(item, userId)) {
+            return true;
+        }
+        String visibility = str(item.get("visibility"), "private").toLowerCase(Locale.ROOT);
+        return "shared".equals(visibility) || "public".equals(visibility);
+    }
+
+    private boolean isOwner(Map<String, Object> item, long userId) {
+        if (userId <= 0) {
+            return false;
+        }
+        Object owner = item.get("ownerId");
+        if (owner instanceof Number n) {
+            return n.longValue() == userId;
+        }
+        return Objects.equals(String.valueOf(owner), String.valueOf(userId));
     }
 
     private Map<String, Object> require(Map<String, Map<String, Object>> source, String id) {
@@ -881,7 +1038,7 @@ public class AiWorkspaceService {
         if (owner instanceof Number n && n.longValue() == 0L) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        if (!Objects.equals(owner, userId)) {
+        if (!isOwner(item, userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

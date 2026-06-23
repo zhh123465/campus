@@ -966,7 +966,14 @@ Response `data`:
 
 ### AI 工作台 `/api/v1/ai/**`
 
-这些接口由 `AiWorkspaceService` 使用 `backend/data/ai-workspace.json` 轻量持久化，偏产品原型。
+这些接口由 `AiWorkspaceService` 轻量持久化，默认写入 `backend/data/ai-workspace.json`，可通过 `ai.workspace.store-path` 覆盖，偏产品原型。
+
+权限与可见性：
+
+- 智能体：系统预置智能体公开；用户创建的智能体仅所有者可见、可收藏、可使用和可作为对话引用。
+- 插件：系统预置插件公开；用户发布插件默认 `reviewStatus=pending`，仅所有者可见，审核通过为 `approved` 后才对其他用户可见。安装/卸载接口是幂等的，会同步维护 `installCount`。
+- 知识库：`visibility=private` 仅所有者可见；`shared/public` 可被其他登录用户或游客在公开列表中读取；文档、导入任务、使用统计、收藏、分享都会校验可读或所有者权限。
+- 对话：创建和发送消息时会校验 `agentId/pluginIds/knowledgeBaseIds` 均对当前用户可读；对话列表和消息只返回当前登录用户自己的数据；消息反馈只能操作自己对话中的消息。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -980,8 +987,8 @@ Response `data`:
 | GET | `/api/v1/ai/plugins` | 插件列表 |
 | GET | `/api/v1/ai/plugins/rankings` | 插件排行 |
 | GET | `/api/v1/ai/plugins/latest` | 最新插件 |
-| POST | `/api/v1/ai/plugins/{pluginId}/install` | 安装插件 |
-| DELETE | `/api/v1/ai/plugins/{pluginId}/install` | 卸载插件 |
+| POST | `/api/v1/ai/plugins/{pluginId}/install` | 安装可见插件，幂等增加 `installCount` |
+| DELETE | `/api/v1/ai/plugins/{pluginId}/install` | 卸载已安装插件，幂等减少 `installCount` |
 | POST | `/api/v1/ai/plugins/{pluginId}/invoke` | 调用插件 |
 | POST | `/api/v1/ai/plugin-developer/applications` | 插件开发者申请 |
 | POST | `/api/v1/ai/plugins` | 发布插件 |
@@ -992,7 +999,7 @@ Response `data`:
 | DELETE | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}` | 删除知识库，需所有者 |
 | POST | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/favorite` | 收藏知识库 |
 | DELETE | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/favorite` | 取消收藏 |
-| POST | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/share` | 分享知识库 |
+| POST | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/share` | 分享知识库，需所有者 |
 | POST | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents` | 上传知识库文档，字段 `files/tags/parseMode` |
 | GET | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents` | 文档列表 |
 | DELETE | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}` | 删除文档 |
@@ -1000,8 +1007,8 @@ Response `data`:
 | POST | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/qa-pairs` | 创建 QA 对 |
 | GET | `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/usage` | 知识库使用统计 |
 | POST | `/api/v1/ai/conversations` | 创建对话 |
-| GET | `/api/v1/ai/conversations` | 对话列表 |
-| GET | `/api/v1/ai/conversations/{conversationId}/messages` | 对话消息 |
+| GET | `/api/v1/ai/conversations` | 当前用户对话列表 |
+| GET | `/api/v1/ai/conversations/{conversationId}/messages` | 当前用户对话消息 |
 | POST | `/api/v1/ai/conversations/{conversationId}/messages` | 发送对话消息 |
 | POST | `/api/v1/ai/messages/{messageId}/feedback` | 消息反馈 |
 
