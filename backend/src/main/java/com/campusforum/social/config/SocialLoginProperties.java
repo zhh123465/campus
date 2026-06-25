@@ -24,5 +24,6 @@ public class SocialLoginProperties {
     public static class Github {
         private String clientId;
         private String clientSecret;
+        private String scope = "read:user";
     }
 }

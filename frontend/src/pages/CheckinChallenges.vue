@@ -41,13 +41,12 @@ const authStore = useAuthStore();
 
 const challenges = ref<CheckinChallengeVO[]>([]);
 const loading = ref(false);
+const loadError = ref('');
 const activeFeedTab = ref<FeedTab>('all');
 const activeNavIndex = ref(0);
 const feedSort = ref<'latest' | 'hot'>('latest');
 
 const particles = ref<Particle[]>([]);
-const mockDetailVisible = ref(false);
-const selectedMockChallenge = ref<ChallengeCard | null>(null);
 const likedActivities = ref(new Set<string>());
 const dataDetailVisible = ref(false);
 const rankExpanded = ref(false);
@@ -67,14 +66,6 @@ const navItems = [
   ['打卡小组', PeopleOutline],
   ['打卡设置', SettingsOutline],
 ] as const;
-
-const fallbackChallenges: Array<CheckinChallengeVO & { checkedToday: boolean; progress?: number }> = [
-  makeFallback(1, '早起', '06:30 前', 28, 28),
-  makeFallback(2, '背单词', '50 个', 45, 45),
-  makeFallback(3, '学习 2 小时', '120 分钟', 16, 16),
-  makeFallback(4, '运动 30 分钟', '30 分钟', 7, 0),
-  makeFallback(5, '每日阅读', '30 分钟', 23, 23),
-];
 
 const feedTabs: Array<{ key: FeedTab; label: string }> = [
   { key: 'all', label: '全部' },
@@ -106,9 +97,7 @@ const activityItems = [
 
 const weekdayLabels = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
-const visibleChallenges = computed(() =>
-  ((challenges.value.length ? challenges.value : fallbackChallenges) as Array<CheckinChallengeVO & { checkedToday?: boolean; progress?: number }>).slice(0, 5)
-);
+const visibleChallenges = computed(() => (challenges.value as Array<CheckinChallengeVO & { checkedToday?: boolean; progress?: number }>).slice(0, 5));
 const totalCompleted = computed(() => visibleChallenges.value.filter((item) => item.myTotalDays > 0).length);
 const completionRate = computed(() => Math.round((totalCompleted.value / Math.max(visibleChallenges.value.length, 1)) * 100));
 const totalDays = computed(() => visibleChallenges.value.reduce((sum, item) => sum + (item.myTotalDays || 0), 0));
@@ -161,38 +150,15 @@ const calendarDays = computed(() => {
 
 async function load() {
   loading.value = true;
+  loadError.value = '';
   try {
     challenges.value = await getChallenges({ limit: 30 });
-  } catch {
+  } catch (error) {
     challenges.value = [];
+    loadError.value = error instanceof Error ? error.message : '打卡挑战加载失败';
   } finally {
     loading.value = false;
   }
-}
-
-function makeFallback(id: number, name: string, description: string, streak: number, total: number): CheckinChallengeVO & { checkedToday: boolean; progress?: number } {
-  const today = new Date();
-  const end = new Date(today);
-  end.setDate(today.getDate() + 30);
-  return {
-    id: -id,
-    spaceId: null,
-    creatorId: 0,
-    creator: null,
-    name,
-    description,
-    startDate: formatDate(today.getTime()),
-    endDate: formatDate(end.getTime()),
-    rule: null,
-    memberCount: 120 + id * 16,
-    status: 1,
-    isMember: true,
-    myTotalDays: total,
-    myConsecutiveDays: streak,
-    createdAt: '',
-    checkedToday: id !== 3 && id !== 4, // 1, 2, 5 are checked
-    progress: id === 3 ? 60 : undefined,
-  };
 }
 
 function iconFor(index: number) {
@@ -204,17 +170,11 @@ function habitColor(index: number) {
 }
 
 function goDetail(id: number) {
-  if (id < 0) return;
   router.push(`/checkin/${id}`);
 }
 
 function handleCardClick(challenge: ChallengeCard) {
-  if (challenge.id < 0) {
-    selectedMockChallenge.value = challenge;
-    mockDetailVisible.value = true;
-  } else {
-    goDetail(challenge.id);
-  }
+  goDetail(challenge.id);
 }
 
 function triggerConfetti(clientX: number, clientY: number) {
@@ -268,6 +228,10 @@ function handleCheckin(challenge: ChallengeCard, event: MouseEvent) {
 }
 
 function goCreate() {
+  openCreateModal();
+}
+
+function openCreateModal() {
   const today = new Date();
   const end = new Date(today);
   end.setDate(today.getDate() + 30);
@@ -442,6 +406,16 @@ onMounted(load);
           <button @click="editTodayHabits">编辑</button>
         </div>
         <div v-if="loading" class="loading-state"><n-spin size="large" /></div>
+        <div v-else-if="loadError" class="empty-state">
+          <strong>打卡挑战加载失败</strong>
+          <span>{{ loadError }}</span>
+          <NButton size="small" @click="load">重新加载</NButton>
+        </div>
+        <div v-else-if="!visibleChallenges.length" class="empty-state">
+          <strong>暂无打卡挑战</strong>
+          <span>创建一个新挑战，开始记录今天的进步。</span>
+          <NButton size="small" type="primary" @click="openCreateModal">创建挑战</NButton>
+        </div>
         <div v-else class="habit-cards">
           <article
             v-for="(challenge, index) in visibleChallenges"
@@ -633,66 +607,6 @@ onMounted(load);
       </div>
     </NModal>
 
-    <!-- Mock Challenge Detail Modal -->
-    <NModal v-model:show="mockDetailVisible" preset="card" class="resource-modal" :title="selectedMockChallenge?.name + ' 打卡挑战'" :bordered="false" style="width: min(720px, calc(100vw - 32px));">
-      <div v-if="selectedMockChallenge">
-        <div class="detail-meta" style="margin-bottom: 20px;">
-          <div class="detail-tags">
-            <NTag type="success" size="small">进行中</NTag>
-          </div>
-          <div class="modal-actions">
-            <NButton type="primary" :disabled="selectedMockChallenge.checkedToday" @click="handleCheckin(selectedMockChallenge, $event)">
-              {{ selectedMockChallenge.checkedToday ? '今日已打卡' : '立即打卡' }}
-            </NButton>
-          </div>
-        </div>
-
-        <p class="resource-desc" style="font-size: 15px; margin-bottom: 24px; color: var(--cf-text-secondary);">
-          {{ selectedMockChallenge.description || '精选打卡习惯，帮助你建立健康的日常作息与生活习惯。' }}
-        </p>
-
-        <div class="info-grid">
-          <div><span style="color: var(--cf-text-muted); font-size: 12px; display: block;">打卡人数</span><strong>{{ selectedMockChallenge.memberCount }} 人</strong></div>
-          <div><span style="color: var(--cf-text-muted); font-size: 12px; display: block;">累计打卡</span><strong>{{ selectedMockChallenge.myTotalDays }} 次</strong></div>
-          <div><span style="color: var(--cf-text-muted); font-size: 12px; display: block;">连续天数</span><strong>{{ selectedMockChallenge.myConsecutiveDays }} 天</strong></div>
-          <div><span style="color: var(--cf-text-muted); font-size: 12px; display: block;">今日状态</span><strong>{{ selectedMockChallenge.checkedToday ? '已打卡' : '未打卡' }}</strong></div>
-        </div>
-
-        <div class="modal-lists-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px;">
-          <!-- Left: History -->
-          <section class="preview-section" style="margin: 0;">
-            <div class="preview-title" style="margin-bottom: 12px; font-size: 15px; font-weight: bold;">打卡日志 (最近3天)</div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div v-for="dayOffset in [0, 1, 2]" :key="dayOffset" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--cf-border); border-radius: 8px; background: var(--cf-bg-soft);">
-                <span style="font-size: 13px; font-weight: 500;">
-                  {{ formatDate(Date.now() - dayOffset * 86400000) }}
-                </span>
-                <span :style="{ color: (dayOffset === 0 ? selectedMockChallenge.checkedToday : true) ? 'var(--cf-primary)' : 'var(--cf-text-muted)', fontSize: '12px', fontWeight: 'bold' }">
-                  {{ (dayOffset === 0 ? selectedMockChallenge.checkedToday : true) ? '已打卡' : '未打卡' }}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Right: Comments -->
-          <section class="preview-section" style="margin: 0;">
-            <div class="preview-title" style="margin-bottom: 12px; font-size: 15px; font-weight: bold;">大家在讨论</div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-              <div v-for="comment in [
-                { user: '学霸学长', text: '今天又是充满活力的一天，打卡！' },
-                { user: '代码诗人', text: '自律给我自由，加油冲！' }
-              ]" :key="comment.user" style="padding: 10px; border-radius: 8px; background: var(--cf-bg-soft); border: 1px solid var(--cf-border);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; align-items: center;">
-                  <strong style="font-size: 12px;">{{ comment.user }}</strong>
-                  <span style="font-size: 11px; color: var(--cf-text-muted);">刚刚</span>
-                </div>
-                <p style="margin: 0; font-size: 12px; color: var(--cf-text-secondary);">{{ comment.text }}</p>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </NModal>
   </div>
 </template>
 
@@ -1291,6 +1205,29 @@ onMounted(load);
 .loading-state {
   padding: 40px;
   text-align: center;
+}
+
+.empty-state {
+  min-height: 220px;
+  border: 1px dashed var(--cf-border);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: var(--cf-text-secondary);
+  background: var(--cf-bg-soft);
+  text-align: center;
+}
+
+.empty-state strong {
+  color: var(--cf-text-primary);
+  font-size: 18px;
+}
+
+.empty-state span {
+  max-width: 360px;
+  font-size: 14px;
 }
 
 .create-form {

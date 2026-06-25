@@ -5,7 +5,7 @@ spring:
   application:
     name: campus-forum
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:}
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd'T'HH:mm:ss
@@ -17,15 +17,15 @@ spring:
       max-file-size: 50MB
       max-request-size: 60MB
   datasource:
-    url: jdbc:mysql://192.168.150.130:3306/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${MYSQL_USER:}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: 192.168.150.130
-      port: 6379
-      password: 123456
+      host: ${REDIS_HOST:}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   websocket:
     endpoint:
       path: /ws/notify
@@ -123,7 +123,22 @@ search:
   type: meilisearch  # meilisearch | mysql
   meilisearch:
     host: http://localhost:7700
-    api-key: ${MEILI_MASTER_KEY:masterKey}
+    api-key: ${MEILI_MASTER_KEY:}
+
+ai-workspace:
+  rag:
+    index-name: ai_kb_chunks
+    semantic-enabled: ${AI_WORKSPACE_RAG_SEMANTIC_ENABLED:false}
+    embedder-name: default
+    embedder-source: openAi
+    embedder-api-key: ${AI_WORKSPACE_EMBEDDING_API_KEY:${AI_API_KEY:}}
+    embedder-model: ${AI_WORKSPACE_EMBEDDING_MODEL:text-embedding-3-small}
+    document-template: "{{doc.title}}\n{{doc.content}}"
+    chunk-size: 900
+    chunk-overlap: 150
+    top-k: 6
+    max-context-chars: 3200
+    max-document-chars: 200000
 
 # ---------- 学号自动识别 ----------
 student-no:
@@ -189,6 +204,18 @@ rate-limit:
     "[POST /api/v1/auth/login]":
       max-requests: 10
       window-seconds: 60
+    "[POST /api/v1/auth/wechat-login]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/qq-login]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/github-device-code]":
+      max-requests: 10
+      window-seconds: 60
+    "[POST /api/v1/auth/github-device-login]":
+      max-requests: 30
+      window-seconds: 60
     "[POST /api/v1/auth/register]":
       max-requests: 5
       window-seconds: 300
@@ -245,6 +272,25 @@ email:
   reset-token-expire-minutes: 30
   rate-limit-max-requests: 5
   rate-limit-window-minutes: 15
+
+# ---------- 社会化登录 ----------
+wechat:
+  mini-program:
+    app-id: ${WECHAT_MINI_PROGRAM_APP_ID:}
+    app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
+    connect-timeout-ms: ${SOCIAL_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${SOCIAL_READ_TIMEOUT_MS:8000}
+
+social:
+  connect-timeout-ms: ${SOCIAL_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${SOCIAL_READ_TIMEOUT_MS:8000}
+  qq:
+    app-id: ${QQ_APP_ID:}
+    app-key: ${QQ_APP_KEY:}
+  github:
+    client-id: ${GITHUB_CLIENT_ID:}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
+    scope: ${GITHUB_OAUTH_SCOPE:read:user}
 
 # ---------- 安全相关 ----------
 security:

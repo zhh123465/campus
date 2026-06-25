@@ -216,9 +216,26 @@ public class ResourceService {
         return storageService.download(resource.getStorageKey());
     }
 
+    @Transactional
+    public InputStream downloadAs(Long resourceId, Long userId) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null || resource.getDeleted() == 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        ensureCanAccess(resource, userId, null);
+        resourceMapper.incrementDownloadCount(resourceId);
+        return storageService.download(resource.getStorageKey());
+    }
+
     public InputStream preview(Long resourceId) {
         Resource resource = getActiveResource(resourceId);
         ensureCanAccess(resource);
+        return downloadFromStorageOrThrow(resource);
+    }
+
+    public InputStream previewAs(Long resourceId, Long userId) {
+        Resource resource = getActiveResource(resourceId);
+        ensureCanAccess(resource, userId, null);
         return downloadFromStorageOrThrow(resource);
     }
 
@@ -254,6 +271,12 @@ public class ResourceService {
         return resource.getFileName();
     }
 
+    public String getFileNameAs(Long resourceId, Long userId) {
+        Resource resource = getActiveResource(resourceId);
+        ensureCanAccess(resource, userId, null);
+        return resource.getFileName();
+    }
+
     private InputStream downloadFromStorageOrThrow(Resource resource) {
         try {
             return storageService.download(resource.getStorageKey());
@@ -271,6 +294,12 @@ public class ResourceService {
         Resource resource = getActiveResource(resourceId);
         ensureCanAccess(resource);
         return resource.getFileType();
+    }
+
+    public ResourceVO getByIdAs(Long resourceId, Long userId) {
+        Resource resource = getActiveResource(resourceId);
+        ensureCanAccess(resource, userId, null);
+        return toVO(resource);
     }
 
     @Transactional
@@ -349,7 +378,11 @@ public class ResourceService {
     private void ensureCanAccess(Resource resource) {
         Long currentUserId = currentUserIdOrNull();
         String role = currentRoleOrNull();
-        if (!canAccess(resource, currentUserId, role)) {
+        ensureCanAccess(resource, currentUserId, role);
+    }
+
+    private void ensureCanAccess(Resource resource, Long userId, String role) {
+        if (!canAccess(resource, userId, role)) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }

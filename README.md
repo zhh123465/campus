@@ -41,6 +41,8 @@ cp .env.example .env
 bash install.sh
 ```
 
+`docker compose up --build` 会先通过 `frontend-builder` 服务构建前端静态资源，再由 nginx 容器提供访问，不需要宿主机预先存在 `frontend/dist`。后端测试策略见开发指南：Windows 本机跑 Java/Maven，中间件使用开发虚拟机；云服务器使用本机资源；CI 显式启用 `ci` profile。
+
 ## 项目结构
 
 ```
@@ -56,7 +58,7 @@ CampusForum/
 
 ## 开发指南
 
-详见 [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) 和 [AGENT.md](AGENT.md)。
+详见 [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) 和 [AGENTS.md](AGENTS.md)。
 
 ## 开源协议
 

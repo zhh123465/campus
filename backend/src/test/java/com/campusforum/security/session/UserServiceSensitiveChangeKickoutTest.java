@@ -109,7 +109,9 @@ class UserServiceSensitiveChangeKickoutTest {
                 mock(SecurityProperties.class),
                 auditLogService,
                 securityMetrics,
-                mock(WechatMiniProgramClient.class));
+                mock(WechatMiniProgramClient.class),
+                mock(com.campusforum.social.service.QqOAuthClient.class),
+                mock(com.campusforum.social.service.GithubOAuthClient.class));
 
         // 静态 mock：StpUtil + BCrypt
         stpUtilMock = mockStatic(StpUtil.class);

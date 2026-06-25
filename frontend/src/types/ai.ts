@@ -13,11 +13,15 @@ export interface ChatMessage {
 }
 
 export interface AiCitation {
-  type: string;
-  id: number;
+  type?: string;
+  id?: number;
   title: string;
   snippet: string;
-  url: string;
+  url?: string;
+  knowledgeBaseId?: string;
+  documentId?: string;
+  chunkId?: string;
+  score?: number;
 }
 
 export interface AiResponse {

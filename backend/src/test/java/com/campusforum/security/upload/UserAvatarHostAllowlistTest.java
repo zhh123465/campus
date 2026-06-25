@@ -85,7 +85,9 @@ class UserAvatarHostAllowlistTest {
                 securityProperties,
                 mock(AuditLogService.class),
                 mock(SecurityMetrics.class),
-                mock(WechatMiniProgramClient.class));
+                mock(WechatMiniProgramClient.class),
+                mock(com.campusforum.social.service.QqOAuthClient.class),
+                mock(com.campusforum.social.service.GithubOAuthClient.class));
 
         // updateProfile 主流程读 / 写不依赖 Sa-Token Session，但保险起见仍 mock 静态依赖
         stpUtilMock = mockStatic(StpUtil.class);

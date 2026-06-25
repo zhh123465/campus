@@ -81,9 +81,13 @@ public class ResourceController {
     public void download(@PathVariable Long id,
                          @RequestParam(value = "sig", required = false) String signature,
                          HttpServletResponse response) {
-        verifySignatureOrLogin(id, "download", signature);
-        String fileName = resourceService.getFileName(id);
-        InputStream is = resourceService.download(id);
+        Long signedUserId = verifySignatureOrLogin(id, "download", signature);
+        String fileName = signedUserId == null
+                ? resourceService.getFileName(id)
+                : resourceService.getFileNameAs(id, signedUserId);
+        InputStream is = signedUserId == null
+                ? resourceService.download(id)
+                : resourceService.downloadAs(id, signedUserId);
 
         String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
         response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
@@ -101,8 +105,10 @@ public class ResourceController {
     public void preview(@PathVariable Long id,
                         @RequestParam(value = "sig", required = false) String signature,
                         HttpServletResponse response) {
-        verifySignatureOrLogin(id, "preview", signature);
-        ResourceVO resource = resourceService.getById(id);
+        Long signedUserId = verifySignatureOrLogin(id, "preview", signature);
+        ResourceVO resource = signedUserId == null
+                ? resourceService.getById(id)
+                : resourceService.getByIdAs(id, signedUserId);
         String fileType = resource.getFileType().toLowerCase();
 
         // 文件大小检查
@@ -119,7 +125,7 @@ public class ResourceController {
             // 而是返回 JSON 描述，由前端在浏览器内自行打开预览服务。
             // 这样后端不再发起到第三方预览服务的可达请求，避免预览服务历史漏洞被 SSRF 利用。
             if (isOfficeFile(fileType)) {
-                long userId = StpUtil.getLoginIdAsLong();
+                long userId = signedUserId == null ? StpUtil.getLoginIdAsLong() : signedUserId;
                 SignedUrlService.SignedToken sig = signedUrlService.sign(userId, "RESOURCE", id, "download");
                 String downloadPath = "/api/v1/resources/" + id + "/download?sig="
                         + URLEncoder.encode(sig.token(), StandardCharsets.UTF_8);
@@ -145,7 +151,9 @@ public class ResourceController {
         }
 
         // PDF 和图片：直接流式返回
-        InputStream is = resourceService.preview(id);
+        InputStream is = signedUserId == null
+                ? resourceService.preview(id)
+                : resourceService.previewAs(id, signedUserId);
         response.setContentType(contentType);
         response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline");
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -176,18 +184,19 @@ public class ResourceController {
      * <p>安全加固：签名失败时统一抛 {@code RESOURCE_NOT_FOUND}（404），与无权访问场景一致，
      * 避免攻击者通过响应区分"签名过期" vs "资源不存在"。</p>
      */
-    private void verifySignatureOrLogin(long resourceId, String action, String signature) {
+    private Long verifySignatureOrLogin(long resourceId, String action, String signature) {
         if (signature != null && !signature.isBlank()) {
             SignedUrlService.Verified verified = signedUrlService.verify(signature, "RESOURCE", resourceId, action);
             if (verified == null) {
                 throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
             }
-            return;
+            return verified.userId();
         }
         if (!StpUtil.isLogin()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         // 已登录路径仍然需要走 service 的可见性校验，由 download/preview 内部触发
+        return null;
     }
 
     private String getPreviewContentType(String fileType) {
