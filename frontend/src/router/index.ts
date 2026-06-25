@@ -211,12 +211,6 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/spaces/:id',
-    name: 'space-detail',
-    component: () => import('@/pages/SpaceDetail.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/pages/NotFound.vue'),

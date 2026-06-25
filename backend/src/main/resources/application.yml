@@ -125,6 +125,21 @@ search:
     host: http://localhost:7700
     api-key: ${MEILI_MASTER_KEY:}
 
+ai-workspace:
+  rag:
+    index-name: ai_kb_chunks
+    semantic-enabled: ${AI_WORKSPACE_RAG_SEMANTIC_ENABLED:false}
+    embedder-name: default
+    embedder-source: openAi
+    embedder-api-key: ${AI_WORKSPACE_EMBEDDING_API_KEY:${AI_API_KEY:}}
+    embedder-model: ${AI_WORKSPACE_EMBEDDING_MODEL:text-embedding-3-small}
+    document-template: "{{doc.title}}\n{{doc.content}}"
+    chunk-size: 900
+    chunk-overlap: 150
+    top-k: 6
+    max-context-chars: 3200
+    max-document-chars: 200000
+
 # ---------- 学号自动识别 ----------
 student-no:
   mapping:

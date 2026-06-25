@@ -69,6 +69,16 @@ mvn spring-boot:run
 > `JAVA_HOME=/path/to/jdk mvn test`
 > 默认 `dev` profile 会连接 `application-dev.yml` 中的 MySQL/Redis 地址。若在本机运行，请通过环境变量覆盖 `SPRING_DATASOURCE_URL`、`REDIS_HOST`、`REDIS_PASSWORD`、`STORAGE_TYPE` 等配置。
 
+### 4.1 后端测试策略
+
+请沿用当前项目的稳定策略，不要把默认 `dev` profile 改成 `ci`：
+
+- **Windows 本机开发**：Java / Maven 直接跑本机，MySQL 和 Redis 走虚拟机 `192.168.150.130`
+- **云服务器开发/测试**：直接使用服务器本机的 MySQL / Redis / 存储资源，通过环境变量覆盖连接信息
+- **CI**：显式执行 `mvn test -Dspring.profiles.active=ci`，使用 CI 提供的 MySQL / Redis 服务容器
+
+本地或云端测试时，如需改连接目标，优先通过环境变量覆盖 `SPRING_DATASOURCE_URL`、`REDIS_HOST`、`REDIS_PASSWORD`、`STORAGE_TYPE` 等配置。
+
 ### 4. 前端启动
 进入 `frontend/` 目录：
 ```bash
@@ -103,6 +113,7 @@ npm run dev -- --host 127.0.0.1
 
 ### 1. 单元测试
 - **后端**：使用 Spring Boot Test 和 JUnit 5，测试类位于 `backend/src/test/java` 且命名必须以 `Test` 结尾（如 `UserServiceTest.java`）。针对权限、租户隔离、核心算法务必补充测试用例。
+- **后端执行方式**：本机开发默认直接跑 `mvn test`；CI 继续显式使用 `mvn test -Dspring.profiles.active=ci`；云服务器可直接沿用本机中间件资源。
 - **前端**：使用 Vitest 进行组件和函数测试，测试文件命名为 `*.test.ts` 或 `*.spec.ts`。
 
 ### 2. Git 提交规范 (Conventional Commits)

@@ -36,6 +36,16 @@ import {
   TrashOutline,
 } from '@vicons/ionicons5';
 import { aiChat, aiRagChat } from '@/api/ai';
+import {
+  createAiConversation,
+  createKnowledgeBase as createKnowledgeBaseApi,
+  listKnowledgeBases,
+  listKnowledgeDocuments,
+  sendAiWorkspaceMessage,
+  uploadKnowledgeDocuments,
+  type AiKnowledgeBaseItem,
+  type AiKnowledgeDocumentItem,
+} from '@/api/aiWorkspace';
 import { copyTextToClipboard } from '@/utils/clipboard';
 import type { AiCitation } from '@/types/ai';
 
@@ -118,7 +128,6 @@ type KnowledgeDocumentItem = {
 
 const CHAT_STORAGE_KEY = 'campus-ai-conversations';
 const MODEL_KEY = 'campus-ai-model';
-const KNOWLEDGE_STORAGE_KEY = 'campus-ai-knowledge-bases';
 
 const route = useRoute();
 const router = useRouter();
@@ -133,73 +142,21 @@ const currentConversationId = ref('');
 const attachedContexts = ref<{ name: string; content: string }[]>([]);
 const chatStreamRef = ref<HTMLElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const knowledgeImportInputRef = ref<HTMLInputElement | null>(null);
 const selectedDocumentId = ref('readme');
 const recommendationOffset = ref(0);
 const selectedModel = ref('deepseek-v4-flash');
 const createKnowledgeVisible = ref(false);
 const importKnowledgeVisible = ref(false);
 const knowledgeDraft = ref({ name: '', category: '学习资料' as KnowledgeCategory, desc: '' });
-const importDraft = ref({ targetId: '', files: '', tags: '' });
+const importDraft = ref({ targetId: '', files: [] as File[], tags: '' });
+const knowledgeLoading = ref(false);
+const knowledgeDocuments = ref<KnowledgeDocumentItem[]>([]);
 
 const modelOptions: AiModel[] = [
   { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', provider: 'DeepSeek' },
   { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek' },
   { id: 'mimo-v2.5', name: 'MiMo 2.5', provider: 'MiMo' },
-];
-
-const defaultKnowledgeBases: KnowledgeBase[] = [
-  {
-    id: 'mathhub-calculus',
-    name: '微积分（高等数学/数学分析）每日一题',
-    desc: '系统收集的高等微积分问题，每日更新，用于严格的数学训练。',
-    category: '学习资料',
-    type: '数学题库',
-    docs: 2247,
-    vectors: 58333,
-    updatedAt: '6/5',
-    owner: '我创建的',
-    favorite: true,
-    color: '#007a52',
-  },
-  {
-    id: 'marketing-q3',
-    name: '第三季度营销策略',
-    desc: '第三季度的综合分析、竞争对手研究和活动规划文档。',
-    category: '市场与销售',
-    type: '营销资料',
-    docs: 186,
-    vectors: 43890,
-    updatedAt: '刚刚',
-    owner: '我创建的',
-    favorite: false,
-    color: '#10b981',
-  },
-  {
-    id: 'frontend-engineering',
-    name: '前端工程中心',
-    desc: '架构指南、组件库和代码审查标准。',
-    category: '技术文档',
-    type: '工程文档',
-    docs: 96,
-    vectors: 29041,
-    updatedAt: '2小时前',
-    owner: '我创建的',
-    favorite: false,
-    color: '#2563eb',
-  },
-  {
-    id: 'product-help',
-    name: '产品帮助文档',
-    desc: '包含产品使用说明、功能介绍、常见问题等。',
-    category: '产品文档',
-    type: '产品文档',
-    docs: 156,
-    vectors: 458642,
-    updatedAt: '5/20',
-    owner: '共享给我的',
-    favorite: true,
-    color: '#16a34a',
-  },
 ];
 
 const knowledgeBases = ref<KnowledgeBase[]>([]);
@@ -302,14 +259,6 @@ const topicItems: TopicItem[] = [
   },
 ];
 
-const knowledgeDocuments: KnowledgeDocumentItem[] = [
-  { id: 'readme', title: 'README｜介绍与指南', kind: '笔记', meta: '6/5 更新', icon: DocumentTextOutline },
-  { id: 'latex', title: 'LaTeX 数学笔记提示词模板', kind: '模板', meta: '4/19 更新', icon: CodeSlashOutline },
-  { id: 'pdf', title: '高等数学同步辅导.pdf', kind: 'PDF', meta: '6/5', icon: DocumentTextOutline },
-  { id: 'vector', title: '8. 向量代数与空间解析几何', kind: '文件夹', meta: '30 项 · 昨天', icon: FolderOutline },
-  { id: 'differential', title: '7. 微分方程', kind: '文件夹', meta: '54 项 · 昨天', icon: FolderOutline },
-];
-
 const selectedModelInfo = computed(() => modelOptions.find((model) => model.id === selectedModel.value) ?? modelOptions[0]);
 const currentConversation = computed(() => conversations.value.find((item) => item.id === currentConversationId.value));
 const messages = computed({
@@ -361,10 +310,9 @@ watch(
   { deep: true },
 );
 watch(selectedModel, (value) => localStorage.setItem(MODEL_KEY, value));
-watch(knowledgeBases, (value) => localStorage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(value)), { deep: true });
-
 onMounted(() => {
   loadLocalState();
+  void loadKnowledgeBases();
   void scrollToBottom();
 });
 
@@ -375,6 +323,65 @@ function nowLabel() {
 function formatCompact(value: number) {
   if (value >= 10000) return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}w`;
   return value.toLocaleString('zh-CN');
+}
+
+function mapKnowledgeBase(item: AiKnowledgeBaseItem, index = 0): KnowledgeBase {
+  const palette = ['#007a52', '#10b981', '#2563eb', '#16a34a', '#7c3aed'];
+  return {
+    id: item.id,
+    name: item.name,
+    desc: item.description || '这个知识库还没有描述',
+    category: ((item.category || '学习资料') as KnowledgeCategory),
+    type: item.type || item.category || '学习资料',
+    docs: item.documentCount || 0,
+    vectors: item.vectorCount || 0,
+    updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('zh-CN') : '刚刚',
+    owner: item.isMine ? '我创建的' : '共享给我的',
+    favorite: Boolean(item.isFavorite),
+    color: palette[index % palette.length],
+  };
+}
+
+function mapKnowledgeDocument(item: AiKnowledgeDocumentItem): KnowledgeDocumentItem {
+  const type = (item.fileType || '').toLowerCase();
+  const kind: KnowledgeDocumentItem['kind'] = type === 'pdf'
+    ? 'PDF'
+    : type === 'md' || type === 'markdown'
+      ? '笔记'
+      : '模板';
+  const statusLabel = item.status === 'ready' ? `${item.chunkCount || 0} 个分块` : item.status || 'processing';
+  return {
+    id: item.id,
+    title: item.fileName,
+    kind,
+    meta: item.errorMessage || statusLabel,
+    icon: kind === 'PDF' ? DocumentTextOutline : CodeSlashOutline,
+  };
+}
+
+async function loadKnowledgeBases() {
+  knowledgeLoading.value = true;
+  try {
+    const page = await listKnowledgeBases();
+    knowledgeBases.value = (page.items || []).map(mapKnowledgeBase);
+    importDraft.value.targetId = selectedKnowledge.value?.id || knowledgeBases.value[0]?.id || '';
+    if (selectedKnowledge.value) await loadKnowledgeDocuments(selectedKnowledge.value.id);
+  } catch (error) {
+    knowledgeBases.value = [];
+    message.warning(error instanceof Error ? error.message : '知识库加载失败');
+  } finally {
+    knowledgeLoading.value = false;
+  }
+}
+
+async function loadKnowledgeDocuments(knowledgeBaseId: string) {
+  try {
+    const docs = await listKnowledgeDocuments(knowledgeBaseId);
+    knowledgeDocuments.value = docs.map(mapKnowledgeDocument);
+    selectedDocumentId.value = knowledgeDocuments.value[0]?.id || '';
+  } catch {
+    knowledgeDocuments.value = [];
+  }
 }
 
 function normalizeTitle(question: string) {
@@ -413,13 +420,7 @@ function loadLocalState() {
   }
   currentConversationId.value = conversations.value[0]?.id || '';
 
-  try {
-    const storedKnowledge = JSON.parse(localStorage.getItem(KNOWLEDGE_STORAGE_KEY) || '[]') as KnowledgeBase[];
-    knowledgeBases.value = storedKnowledge.length ? storedKnowledge : defaultKnowledgeBases.map((item) => ({ ...item }));
-  } catch {
-    knowledgeBases.value = defaultKnowledgeBases.map((item) => ({ ...item }));
-  }
-  importDraft.value.targetId = selectedKnowledge.value?.id || knowledgeBases.value[0]?.id || '';
+  importDraft.value.targetId = knowledgeBases.value[0]?.id || '';
 }
 
 async function scrollToBottom() {
@@ -495,23 +496,41 @@ async function sendQuestion(knowledgeBaseId?: string) {
   await scrollToBottom();
 
   try {
-    const history = messages.value.slice(-10).map((item) => ({ role: item.role, content: item.content }));
-    const knowledgeContext = knowledgeBaseId && selectedKnowledge.value
-      ? `当前知识库：${selectedKnowledge.value.name}\n${selectedKnowledge.value.desc}\n\n${contextText.value}`
-      : contextText.value;
-    const result = webSearchEnabled.value || knowledgeBaseId
-      ? await aiRagChat(history, knowledgeContext, selectedModel.value, enabledAbilities.value)
-      : await aiChat(history, knowledgeContext, selectedModel.value, enabledAbilities.value);
+    if (knowledgeBaseId && currentConversation.value) {
+      if (currentConversation.value.id.startsWith('chat-')) {
+        const remote = await createAiConversation({
+          title: currentConversation.value.title,
+          knowledgeBaseIds: [knowledgeBaseId],
+          model: selectedModel.value,
+        });
+        currentConversation.value.id = remote.id;
+      }
+      const result = await sendAiWorkspaceMessage(currentConversation.value.id, question, selectedModel.value);
+      messages.value = [
+        ...messages.value,
+        {
+          role: 'assistant',
+          content: result.assistantMessage?.content || '没有生成有效回复，请换一种问法再试。',
+          time: nowLabel(),
+          citations: result.assistantMessage?.citations || [],
+        },
+      ];
+    } else {
+      const history = messages.value.slice(-10).map((item) => ({ role: item.role, content: item.content }));
+      const result = webSearchEnabled.value
+        ? await aiRagChat(history, contextText.value, selectedModel.value, enabledAbilities.value)
+        : await aiChat(history, contextText.value, selectedModel.value, enabledAbilities.value);
 
-    messages.value = [
-      ...messages.value,
-      {
-        role: 'assistant',
-        content: result.reply || '没有生成有效回复，请换一种问法再试。',
-        time: nowLabel(),
-        citations: result.citations || [],
-      },
-    ];
+      messages.value = [
+        ...messages.value,
+        {
+          role: 'assistant',
+          content: result.reply || '没有生成有效回复，请换一种问法再试。',
+          time: nowLabel(),
+          citations: result.citations || [],
+        },
+      ];
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : '请求失败';
     messages.value = [
@@ -552,6 +571,15 @@ function searchWithinAi() {
 
 function triggerAttachmentPicker() {
   fileInputRef.value?.click();
+}
+
+function triggerKnowledgeImportPicker() {
+  knowledgeImportInputRef.value?.click();
+}
+
+function handleKnowledgeImportFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  importDraft.value.files = Array.from(input.files || []);
 }
 
 async function handleFileChange(event: Event) {
@@ -618,48 +646,55 @@ function toggleFavorite(id = currentConversationId.value) {
   message.success(target.favorite ? '已加入收藏' : '已取消收藏');
 }
 
-function createKnowledgeBase() {
+async function createKnowledgeBase() {
   if (!knowledgeDraft.value.name.trim()) {
     message.warning('请填写知识库名称');
     return;
   }
-  const item: KnowledgeBase = {
-    id: `kb-${Date.now()}`,
-    name: knowledgeDraft.value.name.trim(),
-    desc: knowledgeDraft.value.desc.trim() || '新的知识库，等待导入文档',
-    category: knowledgeDraft.value.category,
-    type: knowledgeDraft.value.category,
-    docs: 0,
-    vectors: 0,
-    updatedAt: '刚刚',
-    owner: '我创建的',
-    favorite: false,
-    color: '#10b981',
-  };
-  knowledgeBases.value = [item, ...knowledgeBases.value];
-  knowledgeDraft.value = { name: '', category: '学习资料', desc: '' };
-  importDraft.value.targetId = item.id;
-  createKnowledgeVisible.value = false;
-  message.success('知识库已创建');
-  void router.push('/ai/wikis');
+  try {
+    const created = await createKnowledgeBaseApi({
+      name: knowledgeDraft.value.name.trim(),
+      description: knowledgeDraft.value.desc.trim(),
+      category: knowledgeDraft.value.category,
+      type: knowledgeDraft.value.category,
+      visibility: 'private',
+    });
+    const item = mapKnowledgeBase(created);
+    knowledgeBases.value = [item, ...knowledgeBases.value];
+    knowledgeDraft.value = { name: '', category: '学习资料', desc: '' };
+    importDraft.value.targetId = item.id;
+    createKnowledgeVisible.value = false;
+    message.success('知识库已创建');
+    void router.push('/ai/wikis');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '知识库创建失败');
+  }
 }
 
-function importKnowledgeDocs() {
+async function importKnowledgeDocs() {
   const target = knowledgeBases.value.find((item) => item.id === importDraft.value.targetId);
   if (!target) {
     message.warning('请选择目标知识库');
     return;
   }
-  const fileCount = Math.max(1, importDraft.value.files.split('\n').filter(Boolean).length || 1);
-  target.docs += fileCount;
-  target.vectors += fileCount * 8600;
-  target.updatedAt = '刚刚';
-  importKnowledgeVisible.value = false;
-  importDraft.value = { targetId: target.id, files: '', tags: '' };
-  message.success(`已导入 ${fileCount} 份文档到 ${target.name}`);
+  if (!importDraft.value.files.length) {
+    message.warning('请选择要导入的文档');
+    return;
+  }
+  try {
+    const result = await uploadKnowledgeDocuments(target.id, importDraft.value.files, importDraft.value.tags);
+    importKnowledgeVisible.value = false;
+    importDraft.value = { targetId: target.id, files: [], tags: '' };
+    message.success(`已导入 ${result.uploaded} 份文档到 ${target.name}`);
+    await loadKnowledgeBases();
+    await loadKnowledgeDocuments(target.id);
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '文档导入失败');
+  }
 }
 
 function openKnowledge(item: KnowledgeBase) {
+  void loadKnowledgeDocuments(item.id);
   void router.push(`/ai/wikis/${item.id}`);
 }
 
@@ -761,7 +796,7 @@ function toggleKnowledgeFavorite(item: KnowledgeBase) {
                 <strong>{{ item.role === 'assistant' ? '小青' : '我' }}</strong>
                 <pre>{{ item.content }}</pre>
                 <div v-if="item.citations?.length" class="citation-list">
-                  <a v-for="source in item.citations" :key="`${source.type}-${source.id}`" :href="source.url">{{ source.title }}</a>
+                  <a v-for="source in item.citations" :key="source.chunkId || `${source.type}-${source.id}`" :href="source.url || '#'">{{ source.title }}</a>
                 </div>
                 <footer v-if="item.role === 'assistant'">
                   <button @click="copyAssistantAnswer(item.content)"><NIcon size="15"><CopyOutline /></NIcon>复制</button>
@@ -1048,7 +1083,19 @@ function toggleKnowledgeFavorite(item: KnowledgeBase) {
             <option v-for="item in knowledgeBases" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </label>
-        <label>文件名<textarea v-model="importDraft.files" placeholder="每行一个文件名，用于本地模拟导入" /></label>
+        <label>
+          文档文件
+          <input
+            ref="knowledgeImportInputRef"
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.markdown,.txt"
+            @change="handleKnowledgeImportFiles"
+          />
+        </label>
+        <button class="ghost-picker" @click="triggerKnowledgeImportPicker">
+          已选择 {{ importDraft.files.length }} 个文件
+        </button>
         <label>标签<input v-model="importDraft.tags" placeholder="例如：高数、期末、重点" /></label>
         <footer>
           <button @click="importKnowledgeVisible = false">取消</button>

@@ -741,7 +741,7 @@ Form:
 
 - 后端会校验扩展名和真实 MIME
 - 计算 SHA-256 指纹，同文件复用已有资源记录并删除新上传对象
-- 前端当前 `resourceAccept` 包含 zip/rar/7z，但后端默认不允许压缩包，联调时应以前端限制同步调整
+- 默认不允许 zip/rar/7z；前端上传 accept 已同步移除压缩包扩展名
 
 ### GET `/api/v1/resources`
 
@@ -966,7 +966,15 @@ Response `data`:
 
 ### AI 工作台 `/api/v1/ai/**`
 
-这些接口由 `AiWorkspaceService` 轻量持久化，默认写入 `backend/data/ai-workspace.json`，可通过 `ai.workspace.store-path` 覆盖，偏产品原型。
+这些接口由 `AiWorkspaceService` 使用 MySQL 表持久化，并通过 MeiliSearch 独立索引 `ai-workspace.rag.index-name`（默认 `ai_kb_chunks`）维护知识库 chunk 检索。旧 `backend/data/ai-workspace.json` 仅保留为历史原型备份，不再作为运行时数据源。
+
+知识库 RAG 流程：
+
+- 文档上传校验所有者、扩展名和真实 MIME，原文件通过 `StorageService.upload(inputStream, filename, contentType, size)` 保存。
+- 后端使用 Apache Tika 抽取正文，按 `ai-workspace.rag.chunk-size` 和 `chunk-overlap` 切分，chunk 元数据写入 `ai_knowledge_chunks`。
+- chunk 同步写入 MeiliSearch，字段包含 `tenantId`、`knowledgeBaseId`、`documentId`、`chunkId`、`title`、`content`、`tags`、`visibility`、`ownerId`。
+- 若配置 `ai-workspace.rag.semantic-enabled=true` 且提供 embedder API key，会配置 MeiliSearch embedder 并启用 hybrid search；未配置时仍执行全文检索。
+- 对话发送消息时，会按会话绑定的 `knowledgeBaseIds` 检索 top-k chunk，注入 LLM 上下文，并在 assistant message 中返回 `citations`。
 
 权限与可见性：
 
@@ -1011,6 +1019,55 @@ Response `data`:
 | GET | `/api/v1/ai/conversations/{conversationId}/messages` | 当前用户对话消息 |
 | POST | `/api/v1/ai/conversations/{conversationId}/messages` | 发送对话消息 |
 | POST | `/api/v1/ai/messages/{messageId}/feedback` | 消息反馈 |
+
+知识库文档上传响应 `data`：
+
+```json
+{
+  "taskId": "task_xxx",
+  "knowledgeBaseId": "kb_xxx",
+  "status": "ready",
+  "progress": 100,
+  "uploaded": 1,
+  "failed": 0,
+  "documentIds": ["doc_xxx"],
+  "message": "导入完成",
+  "errorMessage": null,
+  "updatedAt": "2026-06-24T21:00:00"
+}
+```
+
+导入任务状态为 `processing | ready | failed`；失败时 `errorMessage` 返回失败原因。
+
+文档列表项新增字段：
+
+```json
+{
+  "id": "doc_xxx",
+  "fileName": "高数笔记.md",
+  "fileType": "md",
+  "status": "ready",
+  "chunkCount": 12,
+  "storageBytes": 20480,
+  "indexedAt": "2026-06-24T21:00:00",
+  "errorMessage": null
+}
+```
+
+发送对话消息响应 `assistantMessage.citations`：
+
+```json
+[
+  {
+    "knowledgeBaseId": "kb_xxx",
+    "documentId": "doc_xxx",
+    "chunkId": "chunk_xxx",
+    "title": "高数笔记.md",
+    "snippet": "相关片段摘要",
+    "score": 0.91
+  }
+]
+```
 
 ## 9. 打卡
 
@@ -1372,7 +1429,7 @@ AI 配置 Body:
 - 下载、预览、导出不是统一 JSON，Axios 需要按文件流处理
 - `GET /api/v1/resources/{id}/preview` 对 Office 文档返回 JSON，不是文件流
 - 资源 `download/preview` 直链携带 `sig` 时无需 `Authorization`，但签名过期、动作不匹配或签名用户无权访问都会按资源不存在处理
-- 前端 `resources.ts` 当前 accept 包含压缩包，但后端默认不允许 zip/rar/7z
+- 前后端默认都不允许资源压缩包上传；如需开放 zip/rar/7z，必须同步调整扩展名白名单、真实 MIME 映射和前端 accept
 - 前端 `messages.ts` 建议把 `receiverId` 从字符串改为 number
 - `GET /api/v1/users/{id}` 后端返回 `PublicUserVO`，不是完整 `UserVO`
 - `POST /api/v1/ai/post-cards/batch` 匿名可调，但只读缓存，不触发生成

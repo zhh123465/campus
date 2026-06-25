@@ -209,7 +209,7 @@ let writingTimer: number | undefined;
 const tabs = ['首页', '帖子', '精华', '文件', '成员', '打卡', '设置'];
 const activeTab = ref('首页');
 const profileTabs = ['动态', '帖子', '打卡', '成就'];
-const uploadAccept = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.7z,.jpg,.jpeg,.png,.gif,.webp,.md,.markdown';
+const uploadAccept = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.md,.markdown';
 const maxUploadSize = 50 * 1024 * 1024;
 type ProfileFeedItem = {
   id: string;
